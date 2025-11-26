@@ -1,6 +1,5 @@
 from rest_framework import serializers
-from django.contrib.auth import authenticate
-from django.contrib.auth import get_user_model
+from django.contrib.auth import authenticate, get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
@@ -13,7 +12,10 @@ class LoginSerializer(serializers.Serializer):
         username = data.get("username")
         password = data.get("password")
 
-        user = authenticate(username=username, password=password)
+        if username and password:
+            user = authenticate(username=username, password=password)
+        else:
+            raise serializers.ValidationError("Veuillez fournir un nom d'utilisateur et un mot de passe")
 
         if not user:
             raise serializers.ValidationError("Identifiants incorrects")
