@@ -1,0 +1,76 @@
+body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #474545, #302f2f, #4b4747);
+    height: 100vh;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Container */
+.login-container {
+    background: rgb(27, 27, 27);
+    padding: 30px;
+    width: 350px;
+    border-radius: 12px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.50);
+    border: 1px solid #333;
+}
+
+/* Title */
+h2 {
+    text-align: center;
+    color: #e63946; /* rouge vif industriel */
+    margin-bottom: 20px;
+}
+
+/* Labels & Input */
+.input-group {
+    margin-bottom: 15px;
+}
+
+.input-group label {
+    color: #c4c4c4; /* gris clair */
+    display: block;
+    margin-bottom: 5px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 10px;
+    background: #2a2a2a;
+    border: 2px solid #444;
+    border-radius: 8px;
+    color: #fff;
+    outline: none;
+    transition: 0.3s;
+}
+
+.input-group input:focus {
+    border-color: #e63946; /* rouge */
+}
+
+/* Button */
+.btn {
+    width: 100%;
+    padding: 10px;
+    background: #e63946; /* rouge */
+    border: none;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.3s;
+}
+
+.btn:hover {
+    background: #b92d39; /* rouge plus foncé */
+}
+
+/* Error message */
+.error {
+    color: #ff4d4f; /* rouge d’erreur */
+    text-align: center;
+    margin-top: 10px;
+}
