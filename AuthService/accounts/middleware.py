@@ -12,6 +12,9 @@ class JWTMiddleware:
         if "login" in request.path:
             return self.get_response(request)
 
+        if request.path.startswith("/admin/"):
+            return self.get_response(request)
+
         auth_header = request.headers.get("Authorization")
 
         if not auth_header or not auth_header.startswith("Bearer "):
