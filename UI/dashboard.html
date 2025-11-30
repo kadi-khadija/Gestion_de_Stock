@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8" />
+    <title>Dashboard - Gestion Stock</title>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+    <div class="app">
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <h1 class="brand">Gestion Stock</h1>
+
+            <nav>
+                <ul class="menu-list">
+                    <li class="menu-item" data-action="dashboard" id="menu-dashboard">Tableau de bord</li>
+
+                    <!-- Gestion Pièces -->
+                    <li class="menu-item magasinier-only" data-action="add-piece" id="menu-add-piece">Ajouter une pièce</li>
+                    <li class="menu-item" data-action="list-pieces" id="menu-list-pieces">Liste des pièces</li>
+                    <li class="menu-item" data-action="search-piece" id="menu-search-piece">Rechercher une pièce</li>
+                    <li class="menu-item admin-only" data-action="edit-piece" id="menu-edit-piece">Modifier / Supprimer pièce</li>
+
+                    <!-- Stock & Mouvements -->
+                    <li class="menu-item magasinier-only" data-action="stock" id="menu-stock">Stock disponible</li>
+                    <li class="menu-item magasinier-only" data-action="move-in" id="menu-move-in">Mouvement d'entrée</li>
+                    <li class="menu-item magasinier-only" data-action="move-out" id="menu-move-out">Mouvement de sortie</li>
+                    <li class="menu-item" data-action="history" id="menu-history">Historique mouvements</li>
+
+                    <!-- Notifications -->
+                    <li class="menu-item admin-only" data-action="notifications" id="menu-notifications">Notifications</li>
+
+                    <li class="menu-item" id="menu-logout">Déconnexion</li>
+                </ul>
+            </nav>
+
+            <div class="sidebar-footer">
+                <small id="user-info">—</small>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main">
+            <header class="main-header">
+                <h2 id="page-title">Tableau de bord</h2>
+            </header>
+
+            <section id="content-area" class="content-area">
+                <div class="placeholder">
+                    <h3>Bienvenue</h3>
+                    <p>Cliquez sur un lien dans le menu pour ouvrir l'interface correspondante.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+<script src="auth.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    console.log("DOM fully loaded → Running protection");
+    applyBasicProtection();
+});
+
+document.getElementById("menu-logout").addEventListener("click", () => {
+    logoutAndRedirect();
+});
+</script>
+
+
+    
+
+</body>
+</html>
