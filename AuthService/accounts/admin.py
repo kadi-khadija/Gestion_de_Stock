@@ -13,3 +13,10 @@ class CustomUserAdmin(UserAdmin):
     list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'role')
 
 admin.site.register(User, CustomUserAdmin)
+
+from django.contrib import admin
+from .models import Stock
+
+@admin.register(Stock)
+class StockAdmin(admin.ModelAdmin):
+    list_display = ("piece", "location", "quantity", "min_quantity", "last_updated")
