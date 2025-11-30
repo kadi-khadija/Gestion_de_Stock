@@ -37,3 +37,15 @@ class MagasinierOnlyView(APIView):
 
     def get(self, request):
         return Response({"message": f"Bienvenue magasinier {request.user.username} !"})
+    
+class MeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        return Response({
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": user.role
+        })    
