@@ -9,7 +9,7 @@ class JWTMiddleware:
     def __call__(self, request):
 
         # Allow login without token
-        if "login" in request.path:
+        if "login" in request.path or "refresh" in request.path:
             return self.get_response(request)
 
         if request.path.startswith("/admin/"):

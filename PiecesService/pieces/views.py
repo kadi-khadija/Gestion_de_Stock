@@ -5,6 +5,7 @@ from .models import Piece
 from .serializers import PieceSerializer
 from django.db.models import Q
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated 
 
 
 # Custom pagination
@@ -15,6 +16,7 @@ class PiecePagination(PageNumberPagination):
 
 
 class PieceListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         search = request.GET.get("search", "")
         queryset = Piece.objects.all()
@@ -41,6 +43,7 @@ class PieceListCreateView(APIView):
 
 
 class PieceDetailView(APIView):
+    permission_classes = [IsAuthenticated]
     def get(self, request, pk):
         try:
             piece = Piece.objects.get(pk=pk)
