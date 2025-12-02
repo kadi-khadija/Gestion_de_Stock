@@ -8,7 +8,6 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
 
-from pieces.models import Piece
 from .models import Stock, StockMovement
 from .serializers import (
     StockSerializer,
@@ -40,19 +39,13 @@ class StockListCreateView(APIView):
     """
 
     def get(self, request):
-        search = request.GET.get("search", "")
+        piece_id = request.GET.get("piece_id")
         location = request.GET.get("location", "")
 
-        queryset = Stock.objects.select_related("piece").all()
+        queryset = Stock.objects.all()
 
-        if search:
-            # mêmes champs que dans PieceListCreateView
-            queryset = queryset.filter(
-                Q(piece__reference__icontains=search)
-                | Q(piece__nom__icontains=search)
-                | Q(piece__categorie__icontains=search)
-            )
-
+        if piece_id:
+            queryset = queryset.filter(piece_id=piece_id)
         if location:
             queryset = queryset.filter(location__icontains=location)
 
@@ -134,7 +127,7 @@ class StockMovementCreateView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         data = serializer.validated_data
-        piece = data["piece"]
+        piece_id = data["piece_id"]
         location = data.get("location", "") or ""
         movement_type = data["movement_type"]
         qty = data["quantity"]
@@ -143,7 +136,7 @@ class StockMovementCreateView(APIView):
         with transaction.atomic():
             if movement_type == "IN":
                 stock, created = Stock.objects.select_for_update().get_or_create(
-                    piece=piece,
+                    piece_id=piece_id,
                     location=location,
                     defaults={"quantity": 0, "min_quantity": 0},
                 )
@@ -153,7 +146,7 @@ class StockMovementCreateView(APIView):
             else:  # OUT
                 stock = get_object_or_404(
                     Stock.objects.select_for_update(),
-                    piece=piece,
+                    piece_id=piece_id,
                     location=location,
                 )
                 previous_qty = stock.quantity
@@ -175,9 +168,6 @@ class StockMovementCreateView(APIView):
                 comment=comment,
             )
 
-            # TODO plus tard :
-            # if stock.quantity <= stock.min_quantity:
-            #     publier stock.alert.low (ou stock.alert.out) sur RabbitMQ
 
         return Response(
             {
@@ -196,7 +186,7 @@ class StockMovementListView(APIView):
     """
 
     def get(self, request):
-        qs = StockMovement.objects.select_related("stock", "stock__piece").all()
+        qs = StockMovement.objects.select_related("stock").all()
 
         piece_id = request.GET.get("piece_id")
         location = request.GET.get("location")

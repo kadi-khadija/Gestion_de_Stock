@@ -1,24 +1,15 @@
 from rest_framework import serializers
-from pieces.models import Piece
 from .models import Stock, StockMovement
 
 
 class StockSerializer(serializers.ModelSerializer):
-    # écriture : piece_id
-    piece_id = serializers.PrimaryKeyRelatedField(
-        source="piece",
-        queryset=Piece.objects.all(),
-        write_only=True
-    )
-    # lecture : string de Piece ("REF - nom")
-    piece = serializers.StringRelatedField(read_only=True)
+
     is_below_minimum = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Stock
         fields = [
             "id",
-            "piece",
             "piece_id",
             "location",
             "quantity",
@@ -45,8 +36,8 @@ class StockSerializer(serializers.ModelSerializer):
 
 
 class StockMovementSerializer(serializers.ModelSerializer):
-    piece = serializers.SerializerMethodField()
-    location = serializers.SerializerMethodField()
+    piece_id = serializers.IntegerField(source="stock.piece_id", read_only=True)
+    location = serializers.CharField(source="stock.location", read_only=True)
 
     class Meta:
         model = StockMovement
@@ -56,25 +47,16 @@ class StockMovementSerializer(serializers.ModelSerializer):
             "quantity",
             "previous_quantity",
             "new_quantity",
-            "piece",
+            "piece_id",
             "location",
             "comment",
             "created_at",
         ]
 
-    def get_piece(self, obj):
-        return str(obj.stock.piece)
-
-    def get_location(self, obj):
-        return obj.stock.location
-
 
 class StockMovementCreateSerializer(serializers.Serializer):
     # utilisé pour POST /api/stock/movement/
-    piece_id = serializers.PrimaryKeyRelatedField(
-        source="piece",
-        queryset=Piece.objects.all()
-    )
+    piece_id = serializers.IntegerField()
     location = serializers.CharField(required=False, allow_blank=True)
     movement_type = serializers.ChoiceField(choices=["IN", "OUT"])
     quantity = serializers.IntegerField(min_value=1)

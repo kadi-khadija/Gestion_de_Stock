@@ -7,9 +7,9 @@ from .models import Stock, StockMovement
 
 @admin.register(Stock)
 class StockAdmin(admin.ModelAdmin):
-    list_display = ("piece", "location", "quantity", "min_quantity", "last_updated")
+    list_display = ("piece_id", "location", "quantity", "min_quantity", "last_updated")
     list_filter = ("location",)
-    search_fields = ("piece__reference", "piece__nom", "piece__categorie")
+    search_fields = ("piece__id", "piece__nom", "piece__categorie")
 
 @admin.register(StockMovement)
 class StockMovementAdmin(admin.ModelAdmin):
@@ -23,4 +23,4 @@ class StockMovementAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = ("movement_type", "stock__location")
-    search_fields = ("stock__piece__reference", "stock__piece__nom")
+    search_fields = ("stock__piece__id", "stock__location")

@@ -1,29 +1,21 @@
 
 from django.db import models
-from pieces.models import Piece
-
-# adapte si ton modèle s'appelle autrement
-from .models import Piece  # ou from pieces.models import Piece
 
 class Stock(models.Model):
-    piece = models.ForeignKey(
-        Piece,
-        on_delete=models.CASCADE,
-        related_name="stocks"
-    )
+    piece_id = models.IntegerField()
     quantity = models.PositiveIntegerField(default=0)
     min_quantity = models.PositiveIntegerField(default=0)
     location = models.CharField(max_length=100, blank=True)  # "magasin central", "dépôt 1", etc.
     last_updated = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ("piece", "location")
+        unique_together = ("piece_id", "location")
         verbose_name = "Stock"
         verbose_name_plural = "Stocks"
 
     def __str__(self):
         loc = f" @ {self.location}" if self.location else ""
-        return f"{self.piece} - {self.quantity}{loc}"
+        return f"Piece {self.piece_id} - {self.quantity}{loc}"
 
     # --- logique métier pratique ---
 
