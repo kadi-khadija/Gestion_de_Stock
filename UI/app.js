@@ -1,6 +1,9 @@
 
 const API_PIECES = "http://127.0.0.1:8001/api/pieces/";
 const API_STOCK = "http://127.0.0.1:8002/api/stock/";
+const API_STOCK_MOVEMENT = "http://127.0.0.1:8002/api/stock/movement/";
+const API_STOCK_HISTORY = "http://127.0.0.1:8002/api/stock/movements/";
+
 let currentEditedPieceId = null;
 let editPiecesCache = [];
 
@@ -228,24 +231,95 @@ const PLACEHOLDERS = {
     </div>
 `,
 
-    'move-in': `
-        <div class="placeholder">
+'move-in': `
+    <div class="move-page">
+        <div class="add-piece-header">
             <h3>Mouvement d'entrée</h3>
-            <p>Formulaire IN — interface en développement.</p>
+            <p>Enregistrer une entrée de stock pour une pièce.</p>
         </div>
-    `,
+
+        <div id="movein-success" class="msg-success"></div>
+        <div id="movein-error" class="msg-error"></div>
+
+        <div class="form-group">
+            <label for="movein-piece-select">Pièce</label>
+            <div style="display:flex; gap:8px;">
+                <select id="movein-piece-select" class="select-piece">
+                    <option value="">-- Choisir une pièce --</option>
+                </select>
+                <button id="movein-reload" class="btn-secondary">Recharger</button>
+            </div>
+        </div>
+
+        <form id="movein-form" class="add-piece-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="movein-qty">Quantité <span class="required">*</span></label>
+                    <input type="number" id="movein-qty" min="1" required placeholder="Ex: 10">
+                </div>
+
+                <div class="form-group">
+                    <label for="movein-location">Emplacement</label>
+                    <input type="text" id="movein-location" placeholder="Ex: A-01, B-12...">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="movein-description">Description</label>
+                <textarea id="movein-description" rows="2" placeholder="Ex: Réception fournisseur, correction de stock..."></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Enregistrer le mouvement</button>
+            </div>
+
+            <p class="small-note">
+                Le mouvement sera enregistré comme une <strong>entrée (IN)</strong> de stock.
+            </p>
+        </form>
+    </div>
+`,
+
     'move-out': `
         <div class="placeholder">
             <h3>Mouvement de sortie</h3>
             <p>Formulaire OUT — interface en développement.</p>
         </div>
     `,
-    'history': `
-        <div class="placeholder">
-            <h3>Historique des mouvements</h3>
-            <p>Tableau historique — interface en développement.</p>
+
+'history': `
+    <div class="history-page">
+        <h3>Historique des mouvements</h3>
+        <p>Liste des mouvements d'entrée et de sortie de stock.</p>
+
+        <div id="history-error" class="msg-error"></div>
+
+        <div class="list-actions">
+            <button id="history-refresh" class="btn-secondary">Actualiser</button>
         </div>
-    `,
+
+        <table class="pieces-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>ID pièce</th>
+                    <th>Quantité</th>
+                    <th>Emplacement</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody id="history-tbody">
+                <tr>
+                    <td colspan="6" style="text-align:center;">
+                        Chargement...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+`,
+
     'notifications': `
         <div class="placeholder">
             <h3>Notifications</h3>
@@ -299,7 +373,10 @@ function loadContent(action) {
     }
     if (action === 'stock') {
         initStockUI();
-    }
+    } 
+    if (action === 'move-in') { initMoveInUI();}
+    
+    if (action === 'history') { initHistoryUI();}
 }
 
 async function loadPiecesList() {
@@ -965,6 +1042,261 @@ async function loadStock(tbody, errorBox) {
     }
 }
 
+function initMoveInUI() {
+    const select = document.getElementById("movein-piece-select");
+    const reloadBtn = document.getElementById("movein-reload");
+    const form = document.getElementById("movein-form");
+    const successBox = document.getElementById("movein-success");
+    const errorBox = document.getElementById("movein-error");
+
+    if (!select || !form) return;
+
+    successBox.textContent = "";
+    errorBox.textContent = "";
+
+    // charger la liste des pièces dans le select
+    loadPiecesForMoveIn(select, errorBox);
+
+    reloadBtn.addEventListener("click", () => {
+        successBox.textContent = "";
+        errorBox.textContent = "";
+        loadPiecesForMoveIn(select, errorBox);
+    });
+
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        successBox.textContent = "";
+        errorBox.textContent = "";
+
+        const pieceIdStr = select.value;
+        const qtyStr = document.getElementById("movein-qty").value;
+        const location = document.getElementById("movein-location").value.trim();
+        const description = document.getElementById("movein-description").value.trim();
+
+        if (!pieceIdStr) {
+            errorBox.textContent = "Veuillez choisir une pièce.";
+            return;
+        }
+
+        if (!qtyStr || Number(qtyStr) <= 0) {
+            errorBox.textContent = "La quantité doit être un nombre positif.";
+            return;
+        }
+
+        const piece_id = parseInt(pieceIdStr, 10);
+        const quantity = Number(qtyStr);
+
+        const payload = {
+            piece_id,
+            quantity,
+            movement_type: "IN",
+            location: location || null,
+            description: description || null
+        };
+
+        const token = localStorage.getItem("access");
+        if (!token) {
+            errorBox.textContent = "Token manquant : veuillez vous reconnecter.";
+            return;
+        }
+
+        try {
+            const resp = await fetch(API_STOCK_MOVEMENT, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await resp.json().catch(() => null);
+            console.log("Réponse mouvement IN:", data);
+
+            if (!resp.ok) {
+                let msg = "Erreur lors de l'enregistrement du mouvement.";
+
+                if (data) {
+                    const parts = [];
+                    if (data.detail) parts.push(data.detail);
+                    if (data.non_field_errors) {
+                        parts.push(
+                            Array.isArray(data.non_field_errors)
+                                ? data.non_field_errors.join(" | ")
+                                : String(data.non_field_errors)
+                        );
+                    }
+                    Object.keys(data).forEach((field) => {
+                        if (field === "detail" || field === "non_field_errors") return;
+                        const errors = data[field];
+                        if (Array.isArray(errors)) {
+                            parts.push(`${field}: ${errors.join(" | ")}`);
+                        }
+                    });
+                    if (parts.length > 0) msg = parts.join(" — ");
+                }
+
+                errorBox.textContent = `${msg} (code ${resp.status})`;
+                return;
+            }
+
+            successBox.textContent = "Mouvement d'entrée enregistré avec succès.";
+            form.reset();
+            select.value = pieceIdStr; // on laisse la même pièce sélectionnée
+
+        } catch (err) {
+            console.error(err);
+            errorBox.textContent =
+                "Erreur réseau : impossible de contacter le service de stock.";
+        }
+    });
+}
+
+async function loadPiecesForMoveIn(select, errorBox) {
+    select.innerHTML = `<option value="">Chargement...</option>`;
+
+    const token = localStorage.getItem("access");
+
+    try {
+        const resp = await fetch(API_PIECES, {
+            method: "GET",
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        const data = await resp.json();
+        if (!resp.ok) {
+            const detail = data && data.detail ? ` (${data.detail})` : "";
+            if (errorBox) {
+                errorBox.textContent =
+                    "Erreur lors du chargement des pièces. Code: " +
+                    resp.status + detail;
+            }
+            select.innerHTML = `<option value="">-- Erreur de chargement --</option>`;
+            return;
+        }
+
+        let pieces = data;
+        if (data.results) {
+            pieces = data.results;
+        }
+
+        if (!Array.isArray(pieces) || pieces.length === 0) {
+            select.innerHTML = `<option value="">-- Aucune pièce --</option>`;
+            return;
+        }
+
+        select.innerHTML = `<option value="">-- Choisir une pièce --</option>`;
+        pieces.forEach(piece => {
+            const opt = document.createElement("option");
+            opt.value = piece.id;
+            opt.textContent = `${piece.reference} — ${piece.nom}`;
+            select.appendChild(opt);
+        });
+
+    } catch (err) {
+        console.error(err);
+        if (errorBox) {
+            errorBox.textContent =
+                "Erreur réseau : impossible de charger les pièces.";
+        }
+        select.innerHTML = `<option value="">-- Erreur réseau --</option>`;
+    }
+}
+
+
+async function loadStockHistory(tbody, errorBox) {
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" style="text-align:center;">Chargement...</td>
+        </tr>
+    `;
+    errorBox.textContent = "";
+
+    const token = localStorage.getItem("access");
+
+    try {
+        const resp = await fetch(API_STOCK_HISTORY, {
+            method: "GET",
+            headers: {
+                "Authorization": token ? "Bearer " + token : undefined
+            }
+        });
+
+        const data = await resp.json().catch(() => null);
+        console.log("Historique stock:", data);
+
+        if (!resp.ok) {
+            const detail = data && data.detail ? ` (${data.detail})` : "";
+            errorBox.textContent =
+                "Erreur lors du chargement de l'historique. Code: " +
+                resp.status + detail;
+            tbody.innerHTML = "";
+            return;
+        }
+
+        // DRF pagination : {count, next, previous, results: [...]}
+        let movements = data;
+        if (data && data.results) {
+            movements = data.results;
+        }
+
+        if (!Array.isArray(movements) || movements.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align:center;">
+                        Aucun mouvement enregistré.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = "";
+
+        movements.forEach(mvt => {
+            const mtype = (mvt.movement_type || "").toUpperCase();
+            const pieceId = mvt.piece_id;
+            const qty = mvt.quantity ?? 0;
+            const location = mvt.location || "";
+            const description = mvt.description || "";
+
+            const rawDate =
+                mvt.timestamp ||
+                mvt.created_at ||
+                mvt.movement_date ||
+                mvt.date ||
+                null;
+
+            let dateStr = "";
+            if (rawDate) {
+                try {
+                    dateStr = new Date(rawDate).toLocaleString();
+                } catch {
+                    dateStr = rawDate;
+                }
+            }
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${dateStr}</td>
+                <td>${mtype}</td>
+                <td>${pieceId}</td>
+                <td>${qty}</td>
+                <td>${location || "-"}</td>
+                <td>${description}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+    } catch (err) {
+        console.error(err);
+        errorBox.textContent =
+            "Erreur réseau : impossible de contacter le service de stock.";
+        tbody.innerHTML = "";
+    }
+}
 
 
 document.addEventListener('DOMContentLoaded', function () {
