@@ -380,3 +380,9 @@ body {
 .btn-danger:hover {
     opacity: 0.9;
 }
+
+
+.stock-page {
+    max-width: 900px;
+    margin: 0 auto;
+}

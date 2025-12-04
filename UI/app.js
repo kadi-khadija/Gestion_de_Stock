@@ -1,5 +1,6 @@
 
 const API_PIECES = "http://127.0.0.1:8001/api/pieces/";
+const API_STOCK = "http://127.0.0.1:8002/api/stock/";
 let currentEditedPieceId = null;
 let editPiecesCache = [];
 
@@ -196,13 +197,37 @@ const PLACEHOLDERS = {
     </div>
 `,
 
+'stock': `
+    <div class="stock-page">
+        <h3>Stock disponible</h3>
+        <p>Quantités en stock par pièce et par emplacement.</p>
 
-    'stock': `
-        <div class="placeholder">
-            <h3>Stock disponible</h3>
-            <p>Affichage des quantités — interface en développement.</p>
+        <div id="stock-error" class="msg-error"></div>
+
+        <div class="list-actions">
+            <button id="stock-refresh" class="btn-secondary">Actualiser</button>
         </div>
-    `,
+
+        <table class="pieces-table">
+            <thead>
+                <tr>
+                    <th>ID pièce</th>
+                    <th>Emplacement</th>
+                    <th>Quantité</th>
+                    <th>Seuil min.</th>
+                    <th>Statut</th>
+                    <th>Dernière mise à jour</th>
+                </tr>
+            </thead>
+            <tbody id="stock-tbody">
+                <tr>
+                    <td colspan="6" style="text-align:center;">Chargement...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+`,
+
     'move-in': `
         <div class="placeholder">
             <h3>Mouvement d'entrée</h3>
@@ -272,6 +297,9 @@ function loadContent(action) {
     if (action === 'edit-piece') {
         initEditPieceUI();
     }
+    if (action === 'stock') {
+        initStockUI();
+    }
 }
 
 async function loadPiecesList() {
@@ -308,7 +336,6 @@ async function loadPiecesList() {
             return;
         }
 
-        // prendre data.results
         let pieces = data;
 
         // pagination DRF 
@@ -827,6 +854,117 @@ function fillEditForm(piece) {
     document.getElementById("ep-buy").value = piece.prix_achat || "";
     document.getElementById("ep-sell").value = piece.prix_vente || "";
 }
+
+function initStockUI() {
+    const refreshBtn = document.getElementById("stock-refresh");
+    const tbody = document.getElementById("stock-tbody");
+    const errorBox = document.getElementById("stock-error");
+
+    if (!tbody) return;
+
+    // première charge
+    loadStock(tbody, errorBox);
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener("click", () => {
+            loadStock(tbody, errorBox);
+        });
+    }
+}
+
+async function loadStock(tbody, errorBox) {
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" style="text-align:center;">Chargement...</td>
+        </tr>
+    `;
+    errorBox.textContent = "";
+
+    const token = localStorage.getItem("access");
+
+    try {
+        const resp = await fetch(API_STOCK, {
+            method: "GET",
+            headers: {
+                // l'API stock n'impose pas IsAuthenticated dans les settings,
+                // mais on envoie le token quand même pour être cohérent
+                "Authorization": token ? "Bearer " + token : undefined
+            }
+        });
+
+        const data = await resp.json().catch(() => null);
+        console.log("Réponse stock:", data);
+
+        if (!resp.ok) {
+            const detail = data && data.detail ? ` (${data.detail})` : "";
+            errorBox.textContent =
+                "Erreur lors du chargement du stock. Code: " +
+                resp.status + detail;
+            tbody.innerHTML = "";
+            return;
+        }
+
+        // DRF pagination: {count, next, previous, results}
+        let items = data;
+        if (data && data.results) {
+            items = data.results;
+        }
+
+        if (!Array.isArray(items) || items.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align:center;">
+                        Aucun stock trouvé.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = "";
+
+        items.forEach(stockItem => {
+            const pieceId = stockItem.piece_id;
+            const location = stockItem.location || "";
+            const quantity = stockItem.quantity ?? 0;
+            const minQuantity = stockItem.min_quantity ?? 0;
+            const belowMin = stockItem.is_below_minimum;
+            const lastUpdated = stockItem.last_updated;
+
+            const statut = belowMin
+                ? "Sous le minimum"
+                : "OK";
+
+            // petit formatage simple de la date
+            let lastUpdatedStr = "";
+            if (lastUpdated) {
+                try {
+                    lastUpdatedStr = new Date(lastUpdated).toLocaleString();
+                } catch {
+                    lastUpdatedStr = lastUpdated;
+                }
+            }
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${pieceId}</td>
+                <td>${location || "-"}</td>
+                <td>${quantity}</td>
+                <td>${minQuantity}</td>
+                <td>${statut}</td>
+                <td>${lastUpdatedStr}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+    } catch (err) {
+        console.error(err);
+        errorBox.textContent =
+            "Erreur réseau : impossible de contacter le serveur de stock.";
+        tbody.innerHTML = "";
+    }
+}
+
 
 
 document.addEventListener('DOMContentLoaded', function () {
