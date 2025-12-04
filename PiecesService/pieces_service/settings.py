@@ -45,12 +45,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    "corsheaders",
     'rest_framework',            
     'rest_framework_simplejwt',
     'pieces',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -130,6 +132,10 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTTokenUserAuthentication",
     ],
 }
+CORS_ALLOWED_ORIGINS = [
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+]
 STATIC_URL = 'static/'
 
 # Default primary key field type
