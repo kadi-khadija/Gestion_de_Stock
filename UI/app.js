@@ -280,12 +280,55 @@ const PLACEHOLDERS = {
     </div>
 `,
 
-    'move-out': `
-        <div class="placeholder">
+'move-out': `
+    <div class="move-page">
+        <div class="add-piece-header">
             <h3>Mouvement de sortie</h3>
-            <p>Formulaire OUT — interface en développement.</p>
+            <p>Enregistrer une sortie de stock pour une pièce.</p>
         </div>
-    `,
+
+        <div id="moveout-success" class="msg-success"></div>
+        <div id="moveout-error" class="msg-error"></div>
+
+        <div class="form-group">
+            <label for="moveout-piece-select">Pièce</label>
+            <div style="display:flex; gap:8px;">
+                <select id="moveout-piece-select" class="select-piece">
+                    <option value="">-- Choisir une pièce --</option>
+                </select>
+                <button id="moveout-reload" class="btn-secondary">Recharger</button>
+            </div>
+        </div>
+
+        <form id="moveout-form" class="add-piece-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="moveout-qty">Quantité <span class="required">*</span></label>
+                    <input type="number" id="moveout-qty" min="1" required placeholder="Ex: 2">
+                </div>
+
+                <div class="form-group">
+                    <label for="moveout-location">Emplacement</label>
+                    <input type="text" id="moveout-location" placeholder="Ex: A-01, B-12...">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="moveout-description">Description</label>
+                <textarea id="moveout-description" rows="2" placeholder="Ex: Vente client, consommation atelier..."></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Enregistrer le mouvement</button>
+            </div>
+
+            <p class="small-note">
+                Le mouvement sera enregistré comme une <strong>sortie (OUT)</strong> de stock.<br>
+                Assurez-vous que la quantité disponible est suffisante.
+            </p>
+        </form>
+    </div>
+`,
 
 'history': `
     <div class="history-page">
@@ -375,7 +418,7 @@ function loadContent(action) {
         initStockUI();
     } 
     if (action === 'move-in') { initMoveInUI();}
-    
+    if (action === 'move-out') { initMoveOutUI()(); }
     if (action === 'history') { initHistoryUI();}
 }
 
@@ -1205,6 +1248,117 @@ async function loadPiecesForMoveIn(select, errorBox) {
     }
 }
 
+function initMoveOutUI() {
+    const select = document.getElementById("moveout-piece-select");
+    const reloadBtn = document.getElementById("moveout-reload");
+    const form = document.getElementById("moveout-form");
+    const successBox = document.getElementById("moveout-success");
+    const errorBox = document.getElementById("moveout-error");
+
+    if (!select || !form) return;
+
+    successBox.textContent = "";
+    errorBox.textContent = "";
+
+    // On réutilise la même fonction que pour l'IN pour charger les pièces
+    loadPiecesForMoveIn(select, errorBox);
+
+    reloadBtn.addEventListener("click", () => {
+        successBox.textContent = "";
+        errorBox.textContent = "";
+        loadPiecesForMoveIn(select, errorBox);
+    });
+
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        successBox.textContent = "";
+        errorBox.textContent = "";
+
+        const pieceIdStr = select.value;
+        const qtyStr = document.getElementById("moveout-qty").value;
+        const location = document.getElementById("moveout-location").value.trim();
+        const description = document.getElementById("moveout-description").value.trim();
+
+        if (!pieceIdStr) {
+            errorBox.textContent = "Veuillez choisir une pièce.";
+            return;
+        }
+
+        if (!qtyStr || Number(qtyStr) <= 0) {
+            errorBox.textContent = "La quantité doit être un nombre positif.";
+            return;
+        }
+
+        const piece_id = parseInt(pieceIdStr, 10);
+        const quantity = Number(qtyStr);
+
+        const payload = {
+            piece_id,
+            quantity,
+            movement_type: "OUT",
+            location: location || null,
+            description: description || null
+        };
+
+        const token = localStorage.getItem("access");
+        if (!token) {
+            errorBox.textContent = "Token manquant : veuillez vous reconnecter.";
+            return;
+        }
+
+        try {
+            const resp = await fetch(API_STOCK_MOVEMENT, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await resp.json().catch(() => null);
+            console.log("Réponse mouvement OUT:", data);
+
+            if (!resp.ok) {
+                let msg = "Erreur lors de l'enregistrement du mouvement.";
+
+                if (data) {
+                    const parts = [];
+                    if (data.detail) parts.push(data.detail);
+                    if (data.non_field_errors) {
+                        parts.push(
+                            Array.isArray(data.non_field_errors)
+                                ? data.non_field_errors.join(" | ")
+                                : String(data.non_field_errors)
+                        );
+                    }
+                    Object.keys(data).forEach((field) => {
+                        if (field === "detail" || field === "non_field_errors") return;
+                        const errors = data[field];
+                        if (Array.isArray(errors)) {
+                            parts.push(`${field}: ${errors.join(" | ")}`);
+                        }
+                    });
+                    if (parts.length > 0) msg = parts.join(" — ");
+                }
+
+                errorBox.textContent = `${msg} (code ${resp.status})`;
+                return;
+            }
+
+            successBox.textContent = "Mouvement de sortie enregistré avec succès.";
+            form.reset();
+            select.value = pieceIdStr; // on garde la même pièce sélectionnée
+
+        } catch (err) {
+            console.error(err);
+            errorBox.textContent =
+                "Erreur réseau : impossible de contacter le service de stock.";
+        }
+    });
+}
+
+
 
 async function loadStockHistory(tbody, errorBox) {
     tbody.innerHTML = `
@@ -1295,6 +1449,22 @@ async function loadStockHistory(tbody, errorBox) {
         errorBox.textContent =
             "Erreur réseau : impossible de contacter le service de stock.";
         tbody.innerHTML = "";
+    }
+}
+
+function initHistoryUI() {
+    const tbody = document.getElementById("history-tbody");
+    const errorBox = document.getElementById("history-error");
+    const refreshBtn = document.getElementById("history-refresh");
+
+    if (!tbody) return;
+
+    loadStockHistory(tbody, errorBox);
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener("click", () => {
+            loadStockHistory(tbody, errorBox);
+        });
     }
 }
 
