@@ -157,7 +157,7 @@ body {
     }
 }
 
-/* === UI Ajout Pièce === */
+/*  UI Ajout Pièce */
 
 .add-piece-page {
     max-width: 800px;
@@ -271,4 +271,112 @@ body {
     font-size: 12px;
     color: var(--text-muted);
     margin-top: 6px;
+}
+
+/* Liste des pièces  */
+
+.list-pieces-page {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.list-pieces-page h3 {
+    color: var(--text-light);
+    margin-bottom: 10px;
+}
+
+.list-actions {
+    margin: 10px 0;
+}
+
+.pieces-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    background: var(--bg-dark-3);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.pieces-table th {
+    text-align: left;
+    padding: 10px;
+    background: var(--bg-dark-2);
+    border-bottom: 2px solid var(--border-light);
+    color: var(--text-light);
+}
+
+.pieces-table td {
+    padding: 10px;
+    border-bottom: 1px solid var(--border-light);
+    color: #ddd;
+}
+
+.pieces-table tr:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+/* Recherche de pièces */
+
+.search-piece-page {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.search-form {
+    display: flex;
+    gap: 10px;
+    margin: 10px 0 16px;
+}
+
+.search-input {
+    flex: 1;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border-light);
+    background: var(--bg-dark-3);
+    color: #fff;
+    font-size: 14px;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+/* Modifier / Supprimer pièce*/
+
+.edit-piece-page {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.select-piece {
+    flex: 1;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border-light);
+    background: var(--bg-dark-3);
+    color: #fff;
+    font-size: 14px;
+}
+
+.select-piece:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.btn-danger {
+    padding: 8px 14px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    background: #ff5252;
+    color: #fff;
+}
+
+.btn-danger:hover {
+    opacity: 0.9;
 }

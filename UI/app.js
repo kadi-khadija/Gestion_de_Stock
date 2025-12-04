@@ -1,12 +1,7 @@
-// app.js
 
-// === CONFIG API ===
-// Adapte cette URL selon ton routing Django global.
-// Si dans ton project urls.py tu as quelque chose comme:
-//   path("api/", include("pieces.urls"))
-// alors mets: "http://127.0.0.1:8000/api/pieces/"
-// Si c'est directement include("pieces.urls") à la racine, ce sera "/pieces/"
 const API_PIECES = "http://127.0.0.1:8001/api/pieces/";
+let currentEditedPieceId = null;
+let editPiecesCache = [];
 
 // Map de pages -> contenu HTML
 const PLACEHOLDERS = {
@@ -18,7 +13,6 @@ const PLACEHOLDERS = {
         </div>
     `,
 
-    // 🔹 UI AJOUT PIÈCE 🔹
     'add-piece': `
         <div class="add-piece-page">
             <div class="add-piece-header">
@@ -72,26 +66,137 @@ const PLACEHOLDERS = {
         </div>
     `,
 
-    // Tu pourras plus tard remplacer ces placeholders par de vraies UI
     'list-pieces': `
-        <div class="placeholder">
-            <h3>Liste des pièces</h3>
-            <p>Tableau à venir — interface en développement.</p>
-            <div class="small-note">Tâche: créer la page liste des pièces.</div>
+        <div class="list-pieces-page">
+           <h3>Liste des pièces</h3>
+           <p>Catalogue complet des pièces enregistrées.</p>
+
+          <div id="pieces-error" class="msg-error"></div>
+
+          <div class="list-actions">
+            <button id="refresh-pieces" class="btn-secondary">Actualiser</button>
+          </div>
+
+         <table class="pieces-table">
+            <thead>
+                <tr>
+                    <th>Référence</th>
+                    <th>Nom</th>
+                    <th>Catégorie</th>
+                    <th>Prix achat</th>
+                    <th>Prix vente</th>
+                </tr>
+            </thead>
+            <tbody id="pieces-table-body">
+                <tr><td colspan="5" style="text-align:center;">Chargement...</td></tr>
+            </tbody>
+         </table>
         </div>
     `,
+
     'search-piece': `
-        <div class="placeholder">
-            <h3>Rechercher une pièce</h3>
-            <p>Barre de recherche à venir — interface en développement.</p>
-        </div>
+        <div class="search-piece-page">
+             <h3>Rechercher une pièce</h3>
+             <p>Rechercher par référence, nom ou catégorie.</p>
+
+            <form id="search-piece-form" class="search-form">
+              <input
+                  type="text"
+                  id="search-piece-input"
+                  class="search-input"
+                  placeholder="Ex: FHM, filtre, entretien..."
+                />
+               <button type="submit" class="btn-primary">Rechercher</button>
+               <button type="button" id="search-piece-reset" class="btn-secondary">Réinitialiser</button>
+            </form>
+
+            <div id="search-piece-error" class="msg-error"></div>
+
+            <table class="pieces-table">
+               <thead>
+                  <tr>
+                    <th>Référence</th>
+                    <th>Nom</th>
+                    <th>Catégorie</th>
+                    <th>Prix achat</th>
+                    <th>Prix vente</th>
+                  </tr>
+               </thead>
+               <tbody id="search-piece-tbody">
+                <tr>
+                    <td colspan="5" style="text-align:center;">
+                        Saisissez un terme et lancez une recherche.
+                    </td>
+                </tr>
+               </tbody>
+           </table>
+       </div>
     `,
-    'edit-piece': `
-        <div class="placeholder">
-            <h3>Modifier / Supprimer pièce</h3>
-            <p>Fonctionnalité réservée aux admins. Interface en développement.</p>
+
+'edit-piece': `
+    <div class="edit-piece-page">
+        <div class="add-piece-header">
+            <h3>Modifier / Supprimer une pièce</h3>
+            <p>Choisissez une pièce, modifiez ses informations ou supprimez-la.</p>
         </div>
-    `,
+
+        <div id="edit-piece-success" class="msg-success"></div>
+        <div id="edit-piece-error" class="msg-error"></div>
+
+        <div class="form-group">
+            <label for="edit-piece-select">Sélectionner une pièce</label>
+            <div style="display:flex; gap:8px;">
+                <select id="edit-piece-select" class="select-piece">
+                    <option value="">-- Choisir une pièce --</option>
+                </select>
+                <button id="edit-piece-reload" class="btn-secondary">Recharger</button>
+            </div>
+        </div>
+
+        <form id="edit-piece-form" class="add-piece-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="ep-ref">Référence <span class="required">*</span></label>
+                    <input type="text" id="ep-ref" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="ep-name">Nom <span class="required">*</span></label>
+                    <input type="text" id="ep-name" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="ep-category">Catégorie <span class="required">*</span></label>
+                    <input type="text" id="ep-category" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="ep-buy">Prix d'achat <span class="required">*</span></label>
+                    <input type="number" step="0.01" id="ep-buy" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="ep-sell">Prix de vente <span class="required">*</span></label>
+                    <input type="number" step="0.01" id="ep-sell" required>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Enregistrer les modifications</button>
+                <button type="button" id="edit-piece-delete" class="btn-danger">Supprimer la pièce</button>
+            </div>
+
+            <p class="small-note">
+                Le prix de vente doit être supérieur ou égal au prix d'achat.<br>
+                La suppression est définitive.
+            </p>
+        </form>
+    </div>
+`,
+
+
     'stock': `
         <div class="placeholder">
             <h3>Stock disponible</h3>
@@ -155,15 +260,92 @@ function loadContent(action) {
     if (action === 'add-piece') {
         initAddPieceUI();
     }
+    if (action === 'list-pieces') {
+        loadPiecesList();
+
+        const btn = document.getElementById("refresh-pieces");
+        btn.addEventListener("click", () => loadPiecesList());
+    }
+    if (action === 'search-piece') {
+        initSearchPieceUI();
+    }
+    if (action === 'edit-piece') {
+        initEditPieceUI();
+    }
 }
 
-/**
- * UI Ajout : branche le formulaire "Ajouter une pièce"
- * - récupère les champs
- * - POST /pieces/
- * - affiche succès / erreurs
- * - appelle reloadPiecesTable() si elle existe
- */
+async function loadPiecesList() {
+    const tbody = document.getElementById("pieces-table-body");
+    const errorBox = document.getElementById("pieces-error");
+
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Chargement...</td></tr>`;
+    errorBox.textContent = "";
+
+    const token = localStorage.getItem("access");
+
+    try {
+        const resp = await fetch(API_PIECES, {
+            method: "GET",
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        
+        console.log("Status GET /api/pieces/:", resp.status);
+
+        const data = await resp.json();
+        console.log("Réponse brute:", data);
+
+        if (!resp.ok) {
+            
+            const detail =
+                data && data.detail ? ` (${data.detail})` : "";
+            errorBox.textContent =
+                "Erreur lors du chargement des pièces. Code : "
+                + resp.status + detail;
+            tbody.innerHTML = "";
+            return;
+        }
+
+        // prendre data.results
+        let pieces = data;
+
+        // pagination DRF 
+        if (data.results) {
+            pieces = data.results;
+        }
+
+        if (!Array.isArray(pieces) || pieces.length === 0) {
+            tbody.innerHTML =
+                `<tr><td colspan="5" style="text-align:center;">Aucune pièce trouvée.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = "";
+
+        pieces.forEach(piece => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${piece.reference}</td>
+                <td>${piece.nom}</td>
+                <td>${piece.categorie}</td>
+                <td>${piece.prix_achat}</td>
+                <td>${piece.prix_vente}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+    } catch (err) {
+        console.error(err);
+        errorBox.textContent =
+            "Erreur réseau : impossible de contacter le serveur.";
+        tbody.innerHTML = "";
+    }
+}
+
+
+
 function initAddPieceUI() {
     const form = document.getElementById('add-piece-form');
     const successBox = document.getElementById('add-piece-success');
@@ -228,7 +410,7 @@ function initAddPieceUI() {
                 try {
                     const data = await resp.json();
 
-                    // Cas DRF classique : { "field": ["msg"], "non_field_errors": ["msg"] }
+                    
                     if (typeof data === "object" && data !== null) {
                         const parts = [];
 
@@ -257,7 +439,7 @@ function initAddPieceUI() {
                         }
                     }
                 } catch (e) {
-                    // si body pas JSON, garder msg par défaut
+                    
                 }
 
                 errorBox.textContent = `${msg} (code ${resp.status})`;
@@ -270,8 +452,6 @@ function initAddPieceUI() {
             successBox.textContent = "Pièce ajoutée avec succès.";
             form.reset();
 
-            // Si tu implémentes plus tard une table de pièces,
-            // tu pourras définir window.reloadPiecesTable() ailleurs
             if (typeof window.reloadPiecesTable === "function") {
                 window.reloadPiecesTable();
             }
@@ -282,7 +462,373 @@ function initAddPieceUI() {
     });
 }
 
-// Attacher les listeners de menu
+function initSearchPieceUI() {
+    const form = document.getElementById("search-piece-form");
+    const input = document.getElementById("search-piece-input");
+    const tbody = document.getElementById("search-piece-tbody");
+    const errorBox = document.getElementById("search-piece-error");
+    const resetBtn = document.getElementById("search-piece-reset");
+
+    if (!form) return;
+
+    errorBox.textContent = "";
+
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        errorBox.textContent = "";
+
+        const query = input.value.trim();
+        if (!query) {
+            errorBox.textContent = "Veuillez saisir un terme de recherche.";
+            return;
+        }
+
+        await searchPieces(query, tbody, errorBox);
+    });
+
+    resetBtn.addEventListener("click", () => {
+        input.value = "";
+        errorBox.textContent = "";
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align:center;">
+                    Saisissez un terme et lancez une recherche.
+                </td>
+            </tr>
+        `;
+    });
+}
+
+async function searchPieces(query, tbody, errorBox) {
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="5" style="text-align:center;">Recherche en cours...</td>
+        </tr>
+    `;
+
+    const token = localStorage.getItem("access");
+
+    try {
+        const resp = await fetch(`${API_PIECES}?search=${encodeURIComponent(query)}`, {
+            method: "GET",
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        const data = await resp.json();
+        console.log("Résultats recherche:", data);
+
+        if (!resp.ok) {
+            const detail = data && data.detail ? ` (${data.detail})` : "";
+            errorBox.textContent = `Erreur lors de la recherche. Code: ${resp.status}${detail}`;
+            tbody.innerHTML = "";
+            return;
+        }
+
+        
+        let pieces = data;
+        if (data.results) {
+            pieces = data.results;
+        }
+
+        if (!Array.isArray(pieces) || pieces.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align:center;">
+                        Aucune pièce ne correspond à "${query}".
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = "";
+
+        pieces.forEach(piece => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${piece.reference}</td>
+                <td>${piece.nom}</td>
+                <td>${piece.categorie}</td>
+                <td>${piece.prix_achat}</td>
+                <td>${piece.prix_vente}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+    } catch (err) {
+        console.error(err);
+        errorBox.textContent = "Erreur réseau : impossible de contacter le serveur.";
+        tbody.innerHTML = "";
+    }
+}
+
+function initEditPieceUI() {
+    const select = document.getElementById("edit-piece-select");
+    const reloadBtn = document.getElementById("edit-piece-reload");
+    const form = document.getElementById("edit-piece-form");
+    const deleteBtn = document.getElementById("edit-piece-delete");
+    const successBox = document.getElementById("edit-piece-success");
+    const errorBox = document.getElementById("edit-piece-error");
+
+    if (!select || !form) return;
+
+    successBox.textContent = "";
+    errorBox.textContent = "";
+    currentEditedPieceId = null;
+    editPiecesCache = [];
+
+    // Charger la liste des pièces dans le select
+    loadPiecesForEdit();
+
+    reloadBtn.addEventListener("click", () => {
+        successBox.textContent = "";
+        errorBox.textContent = "";
+        loadPiecesForEdit();
+    });
+
+    select.addEventListener("change", () => {
+        successBox.textContent = "";
+        errorBox.textContent = "";
+        const id = parseInt(select.value);
+        if (!id) {
+            currentEditedPieceId = null;
+            form.reset();
+            return;
+        }
+        const piece = editPiecesCache.find(p => p.id === id);
+        if (piece) {
+            currentEditedPieceId = piece.id;
+            fillEditForm(piece);
+        }
+    });
+
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        successBox.textContent = "";
+        errorBox.textContent = "";
+
+        if (!currentEditedPieceId) {
+            errorBox.textContent = "Veuillez d'abord sélectionner une pièce.";
+            return;
+        }
+
+        const reference = document.getElementById("ep-ref").value.trim();
+        const nom = document.getElementById("ep-name").value.trim();
+        const categorie = document.getElementById("ep-category").value.trim();
+        const prixAchatStr = document.getElementById("ep-buy").value;
+        const prixVenteStr = document.getElementById("ep-sell").value;
+
+        if (!reference || !nom || !categorie || prixAchatStr === "" || prixVenteStr === "") {
+            errorBox.textContent = "Tous les champs sont obligatoires.";
+            return;
+        }
+
+        const prix_achat = parseFloat(prixAchatStr);
+        const prix_vente = parseFloat(prixVenteStr);
+
+        if (isNaN(prix_achat) || isNaN(prix_vente)) {
+            errorBox.textContent = "Les prix doivent être des nombres valides.";
+            return;
+        }
+
+        const payload = {
+            reference,
+            nom,
+            categorie,
+            prix_achat,
+            prix_vente
+        };
+
+        const token = localStorage.getItem("access");
+        if (!token) {
+            errorBox.textContent = "Token manquant, veuillez vous reconnecter.";
+            return;
+        }
+
+        try {
+            const resp = await fetch(`${API_PIECES}${currentEditedPieceId}/`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await resp.json().catch(() => null);
+
+            if (!resp.ok) {
+                let msg = "Erreur lors de la mise à jour de la pièce.";
+                if (data) {
+                    const parts = [];
+                    if (data.detail) parts.push(data.detail);
+                    if (data.non_field_errors) {
+                        parts.push(
+                            Array.isArray(data.non_field_errors)
+                                ? data.non_field_errors.join(" | ")
+                                : String(data.non_field_errors)
+                        );
+                    }
+                    Object.keys(data).forEach((field) => {
+                        if (field === "detail" || field === "non_field_errors") return;
+                        const errors = data[field];
+                        if (Array.isArray(errors)) {
+                            parts.push(`${field}: ${errors.join(" | ")}`);
+                        }
+                    });
+                    if (parts.length > 0) msg = parts.join(" — ");
+                }
+                errorBox.textContent = `${msg} (code ${resp.status})`;
+                return;
+            }
+
+            successBox.textContent = "Pièce mise à jour avec succès.";
+
+            // remettre à jour le cache & le select
+            const updated = data;
+            const idx = editPiecesCache.findIndex(p => p.id === updated.id);
+            if (idx !== -1) editPiecesCache[idx] = updated;
+
+            // mettre à jour le label dans le select
+            const opt = document.querySelector(
+                `#edit-piece-select option[value="${updated.id}"]`
+            );
+            if (opt) {
+                opt.textContent = `${updated.reference} — ${updated.nom}`;
+            }
+
+        } catch (err) {
+            console.error(err);
+            errorBox.textContent = "Erreur réseau : impossible de contacter le serveur.";
+        }
+    });
+
+    deleteBtn.addEventListener("click", async () => {
+        successBox.textContent = "";
+        errorBox.textContent = "";
+
+        if (!currentEditedPieceId) {
+            errorBox.textContent = "Veuillez d'abord sélectionner une pièce.";
+            return;
+        }
+
+        const confirmDelete = window.confirm(
+            "Êtes-vous sûr de vouloir supprimer cette pièce ? Cette action est définitive."
+        );
+        if (!confirmDelete) return;
+
+        const token = localStorage.getItem("access");
+        if (!token) {
+            errorBox.textContent = "Token manquant, veuillez vous reconnecter.";
+            return;
+        }
+
+        try {
+            const resp = await fetch(`${API_PIECES}${currentEditedPieceId}/`, {
+                method: "DELETE",
+                headers: {
+                    "Authorization": "Bearer " + token
+                }
+            });
+
+            if (!resp.ok && resp.status !== 204) {
+                errorBox.textContent =
+                    "Erreur lors de la suppression de la pièce. Code: " + resp.status;
+                return;
+            }
+
+            successBox.textContent = "Pièce supprimée avec succès.";
+
+            // enlever du select + cache + reset form
+            const sel = document.getElementById("edit-piece-select");
+            const option = sel.querySelector(
+                `option[value="${currentEditedPieceId}"]`
+            );
+            if (option) option.remove();
+
+            editPiecesCache = editPiecesCache.filter(
+                p => p.id !== currentEditedPieceId
+            );
+            currentEditedPieceId = null;
+            sel.value = "";
+            document.getElementById("edit-piece-form").reset();
+
+        } catch (err) {
+            console.error(err);
+            errorBox.textContent =
+                "Erreur réseau : impossible de contacter le serveur.";
+        }
+    });
+}
+
+async function loadPiecesForEdit() {
+    const select = document.getElementById("edit-piece-select");
+    const errorBox = document.getElementById("edit-piece-error");
+    if (!select) return;
+
+    select.innerHTML = `<option value="">Chargement...</option>`;
+    editPiecesCache = [];
+
+    const token = localStorage.getItem("access");
+
+    try {
+        const resp = await fetch(API_PIECES, {
+            method: "GET",
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        const data = await resp.json();
+        if (!resp.ok) {
+            const detail = data && data.detail ? ` (${data.detail})` : "";
+            errorBox.textContent =
+                "Erreur lors du chargement des pièces. Code: " +
+                resp.status +
+                detail;
+            select.innerHTML = `<option value="">-- Erreur de chargement --</option>`;
+            return;
+        }
+
+        let pieces = data;
+        if (data.results) {
+            pieces = data.results;
+        }
+
+        if (!Array.isArray(pieces) || pieces.length === 0) {
+            select.innerHTML = `<option value="">-- Aucune pièce --</option>`;
+            return;
+        }
+
+        editPiecesCache = pieces;
+        select.innerHTML = `<option value="">-- Choisir une pièce --</option>`;
+
+        pieces.forEach(piece => {
+            const opt = document.createElement("option");
+            opt.value = piece.id;
+            opt.textContent = `${piece.reference} — ${piece.nom}`;
+            select.appendChild(opt);
+        });
+
+    } catch (err) {
+        console.error(err);
+        errorBox.textContent =
+            "Erreur réseau : impossible de contacter le serveur.";
+        select.innerHTML = `<option value="">-- Erreur réseau --</option>`;
+    }
+}
+
+function fillEditForm(piece) {
+    document.getElementById("ep-ref").value = piece.reference || "";
+    document.getElementById("ep-name").value = piece.nom || "";
+    document.getElementById("ep-category").value = piece.categorie || "";
+    document.getElementById("ep-buy").value = piece.prix_achat || "";
+    document.getElementById("ep-sell").value = piece.prix_vente || "";
+}
+
+
 document.addEventListener('DOMContentLoaded', function () {
     const menu = document.querySelector('.menu-list');
     if (!menu) return;
@@ -297,6 +843,6 @@ document.addEventListener('DOMContentLoaded', function () {
         loadContent(action);
     });
 
-    // Vue par défaut
+    
     loadContent('dashboard');
 });

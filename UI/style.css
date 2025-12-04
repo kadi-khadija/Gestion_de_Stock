@@ -21,7 +21,7 @@ body {
 /* Title */
 h2 {
     text-align: center;
-    color: #e63946; /* rouge vif industriel */
+    color: #e63946; 
     margin-bottom: 20px;
 }
 
@@ -31,7 +31,7 @@ h2 {
 }
 
 .input-group label {
-    color: #c4c4c4; /* gris clair */
+    color: #c4c4c4; 
     display: block;
     margin-bottom: 5px;
 }
@@ -48,14 +48,14 @@ h2 {
 }
 
 .input-group input:focus {
-    border-color: #e63946; /* rouge */
+    border-color: #e63946; 
 }
 
 /* Button */
 .btn {
     width: 100%;
     padding: 10px;
-    background: #e63946; /* rouge */
+    background: #e63946; 
     border: none;
     color: white;
     border-radius: 8px;
@@ -65,12 +65,12 @@ h2 {
 }
 
 .btn:hover {
-    background: #b92d39; /* rouge plus foncé */
+    background: #b92d39; 
 }
 
 /* Error message */
 .error {
-    color: #ff4d4f; /* rouge d’erreur */
+    color: #ff4d4f; 
     text-align: center;
     margin-top: 10px;
 }
