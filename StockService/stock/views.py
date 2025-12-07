@@ -132,15 +132,20 @@ class StockMovementCreateView(APIView):
         movement_type = data["movement_type"]
         qty = data["quantity"]
         comment = data.get("comment", "")
+        min_quantity = data.get("min_quantity", None)
 
         with transaction.atomic():
             if movement_type == "IN":
                 stock, created = Stock.objects.select_for_update().get_or_create(
                     piece_id=piece_id,
                     location=location,
-                    defaults={"quantity": 0, "min_quantity": 0},
+                    defaults={"quantity": 0, "min_quantity": min_quantity or 0},
                 )
                 previous_qty = stock.quantity
+                # si on a fourni un seuil, on met à jour la ligne existante
+                if min_quantity is not None:
+                    stock.min_quantity = min_quantity
+                    
                 stock.increase(qty)
 
             else:  # OUT

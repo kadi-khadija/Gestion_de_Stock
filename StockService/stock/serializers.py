@@ -61,7 +61,8 @@ class StockMovementCreateSerializer(serializers.Serializer):
     movement_type = serializers.ChoiceField(choices=["IN", "OUT"])
     quantity = serializers.IntegerField(min_value=1)
     comment = serializers.CharField(required=False, allow_blank=True)
-
+    min_quantity = serializers.IntegerField(required=False, min_value=0)
+    
     def validate_quantity(self, value):
         if value <= 0:
             raise serializers.ValidationError("La quantité doit être > 0.")

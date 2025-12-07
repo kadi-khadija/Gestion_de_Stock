@@ -84,6 +84,7 @@ const PLACEHOLDERS = {
          <table class="pieces-table">
             <thead>
                 <tr>
+                    
                     <th>Référence</th>
                     <th>Nom</th>
                     <th>Catégorie</th>
@@ -214,7 +215,7 @@ const PLACEHOLDERS = {
         <table class="pieces-table">
             <thead>
                 <tr>
-                    <th>ID pièce</th>
+                    <th>pièce</th>
                     <th>Emplacement</th>
                     <th>Quantité</th>
                     <th>Seuil min.</th>
@@ -261,6 +262,12 @@ const PLACEHOLDERS = {
                 <div class="form-group">
                     <label for="movein-location">Emplacement</label>
                     <input type="text" id="movein-location" placeholder="Ex: A-01, B-12...">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="movein-minqty">Seuil minimum (optionnel)</label>
+                    <input type="number" id="movein-minqty" min="0" placeholder="Ex: 3">
                 </div>
             </div>
 
@@ -346,7 +353,7 @@ const PLACEHOLDERS = {
                 <tr>
                     <th>Date</th>
                     <th>Type</th>
-                    <th>ID pièce</th>
+                    <th>pièce</th>
                     <th>Quantité</th>
                     <th>Emplacement</th>
                     <th>Description</th>
@@ -418,7 +425,7 @@ function loadContent(action) {
         initStockUI();
     } 
     if (action === 'move-in') { initMoveInUI();}
-    if (action === 'move-out') { initMoveOutUI()(); }
+    if (action === 'move-out') { initMoveOutUI(); }
     if (action === 'history') { initHistoryUI();}
 }
 
@@ -474,6 +481,7 @@ async function loadPiecesList() {
         pieces.forEach(piece => {
             const tr = document.createElement("tr");
             tr.innerHTML = `
+                
                 <td>${piece.reference}</td>
                 <td>${piece.nom}</td>
                 <td>${piece.categorie}</td>
@@ -1003,31 +1011,41 @@ async function loadStock(tbody, errorBox) {
     const token = localStorage.getItem("access");
 
     try {
-        const resp = await fetch(API_STOCK, {
-            method: "GET",
-            headers: {
-                // l'API stock n'impose pas IsAuthenticated dans les settings,
-                // mais on envoie le token quand même pour être cohérent
-                "Authorization": token ? "Bearer " + token : undefined
-            }
-        });
+        // On récupère EN MÊME TEMPS :
+        //  - la liste des pièces (pour avoir id -> nom)
+        //  - le stock
+        const [respPieces, respStock] = await Promise.all([
+            fetch(API_PIECES, {
+                method: "GET",
+                headers: {
+                    "Authorization": token ? "Bearer " + token : undefined
+                }
+            }),
+            fetch(API_STOCK, {
+                method: "GET",
+                headers: {
+                    "Authorization": token ? "Bearer " + token : undefined
+                }
+            })
+        ]);
 
-        const data = await resp.json().catch(() => null);
-        console.log("Réponse stock:", data);
+        const piecesData = await respPieces.json().catch(() => null);
+        const stockData = await respStock.json().catch(() => null);
 
-        if (!resp.ok) {
-            const detail = data && data.detail ? ` (${data.detail})` : "";
+        // Gestion d’erreur côté stock (prioritaire)
+        if (!respStock.ok) {
+            const detail = stockData && stockData.detail ? ` (${stockData.detail})` : "";
             errorBox.textContent =
                 "Erreur lors du chargement du stock. Code: " +
-                resp.status + detail;
+                respStock.status + detail;
             tbody.innerHTML = "";
             return;
         }
 
-        // DRF pagination: {count, next, previous, results}
-        let items = data;
-        if (data && data.results) {
-            items = data.results;
+        // Liste des mouvements de stock (avec ou sans pagination DRF)
+        let items = stockData;
+        if (stockData && stockData.results) {
+            items = stockData.results;
         }
 
         if (!Array.isArray(items) || items.length === 0) {
@@ -1041,6 +1059,21 @@ async function loadStock(tbody, errorBox) {
             return;
         }
 
+        // Construire un dictionnaire id -> nom de pièce
+        const nameById = {};
+        if (respPieces.ok) {
+            let pieces = piecesData;
+            if (piecesData && piecesData.results) {
+                pieces = piecesData.results;
+            }
+            if (Array.isArray(pieces)) {
+                pieces.forEach(p => {
+                    // p.id vient de l’API des pièces (Django REST)
+                    nameById[p.id] = p.nom;
+                });
+            }
+        }
+
         tbody.innerHTML = "";
 
         items.forEach(stockItem => {
@@ -1051,11 +1084,8 @@ async function loadStock(tbody, errorBox) {
             const belowMin = stockItem.is_below_minimum;
             const lastUpdated = stockItem.last_updated;
 
-            const statut = belowMin
-                ? "Sous le minimum"
-                : "OK";
+            const statut = belowMin ? "Sous le minimum" : "OK";
 
-            // petit formatage simple de la date
             let lastUpdatedStr = "";
             if (lastUpdated) {
                 try {
@@ -1065,9 +1095,12 @@ async function loadStock(tbody, errorBox) {
                 }
             }
 
+            // Utiliser le nom si connu, sinon afficher l’ID pour debug
+            const pieceName = nameById[pieceId] || `ID ${pieceId}`;
+
             const tr = document.createElement("tr");
             tr.innerHTML = `
-                <td>${pieceId}</td>
+                <td>${pieceName}</td>
                 <td>${location || "-"}</td>
                 <td>${quantity}</td>
                 <td>${minQuantity}</td>
@@ -1080,10 +1113,11 @@ async function loadStock(tbody, errorBox) {
     } catch (err) {
         console.error(err);
         errorBox.textContent =
-            "Erreur réseau : impossible de contacter le serveur de stock.";
+            "Erreur réseau : impossible de contacter le service de stock.";
         tbody.innerHTML = "";
     }
 }
+
 
 function initMoveInUI() {
     const select = document.getElementById("movein-piece-select");
@@ -1115,6 +1149,7 @@ function initMoveInUI() {
         const qtyStr = document.getElementById("movein-qty").value;
         const location = document.getElementById("movein-location").value.trim();
         const description = document.getElementById("movein-description").value.trim();
+        const minQtyStr = document.getElementById("movein-minqty").value;
 
         if (!pieceIdStr) {
             errorBox.textContent = "Veuillez choisir une pièce.";
@@ -1137,6 +1172,10 @@ function initMoveInUI() {
             description: description || null
         };
 
+        if (minQtyStr !== "") {
+            payload.min_quantity = Number(minQtyStr);
+        }
+        
         const token = localStorage.getItem("access");
         if (!token) {
             errorBox.textContent = "Token manquant : veuillez vous reconnecter.";
@@ -1371,29 +1410,42 @@ async function loadStockHistory(tbody, errorBox) {
     const token = localStorage.getItem("access");
 
     try {
-        const resp = await fetch(API_STOCK_HISTORY, {
-            method: "GET",
-            headers: {
-                "Authorization": token ? "Bearer " + token : undefined
-            }
-        });
+        // On récupère EN MÊME TEMPS :
+        //  - la liste des pièces (id -> nom)
+        //  - l'historique des mouvements
+        const [respPieces, respHistory] = await Promise.all([
+            fetch(API_PIECES, {
+                method: "GET",
+                headers: {
+                    "Authorization": token ? "Bearer " + token : undefined
+                }
+            }),
+            fetch(API_STOCK_HISTORY, {
+                method: "GET",
+                headers: {
+                    "Authorization": token ? "Bearer " + token : undefined
+                }
+            })
+        ]);
 
-        const data = await resp.json().catch(() => null);
-        console.log("Historique stock:", data);
+        const piecesData = await respPieces.json().catch(() => null);
+        const histData = await respHistory.json().catch(() => null);
+        console.log("Historique stock:", histData);
 
-        if (!resp.ok) {
-            const detail = data && data.detail ? ` (${data.detail})` : "";
+        // Gestion d’erreur côté historique (prioritaire)
+        if (!respHistory.ok) {
+            const detail = histData && histData.detail ? ` (${histData.detail})` : "";
             errorBox.textContent =
                 "Erreur lors du chargement de l'historique. Code: " +
-                resp.status + detail;
+                respHistory.status + detail;
             tbody.innerHTML = "";
             return;
         }
 
-        // DRF pagination : {count, next, previous, results: [...]}
-        let movements = data;
-        if (data && data.results) {
-            movements = data.results;
+        // Pagination DRF éventuelle
+        let movements = histData;
+        if (histData && histData.results) {
+            movements = histData.results;
         }
 
         if (!Array.isArray(movements) || movements.length === 0) {
@@ -1405,6 +1457,20 @@ async function loadStockHistory(tbody, errorBox) {
                 </tr>
             `;
             return;
+        }
+
+        // Dictionnaire id -> nom de pièce
+        const nameById = {};
+        if (respPieces.ok) {
+            let pieces = piecesData;
+            if (piecesData && piecesData.results) {
+                pieces = piecesData.results;
+            }
+            if (Array.isArray(pieces)) {
+                pieces.forEach(p => {
+                    nameById[p.id] = p.nom;   // p.id = clé primaire de la pièce
+                });
+            }
         }
 
         tbody.innerHTML = "";
@@ -1432,11 +1498,14 @@ async function loadStockHistory(tbody, errorBox) {
                 }
             }
 
+            // Utiliser le nom si on le connaît, sinon afficher l’ID
+            const pieceName = nameById[pieceId] || `ID ${pieceId}`;
+
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td>${dateStr}</td>
                 <td>${mtype}</td>
-                <td>${pieceId}</td>
+                <td>${pieceName}</td>
                 <td>${qty}</td>
                 <td>${location || "-"}</td>
                 <td>${description}</td>
