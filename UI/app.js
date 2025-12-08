@@ -3,6 +3,8 @@ const API_PIECES = "http://127.0.0.1:8001/api/pieces/";
 const API_STOCK = "http://127.0.0.1:8002/api/stock/";
 const API_STOCK_MOVEMENT = "http://127.0.0.1:8002/api/stock/movement/";
 const API_STOCK_HISTORY = "http://127.0.0.1:8002/api/stock/movements/";
+const API_NOTIFICATIONS = "http://127.0.0.1:8003/api/notifications/";
+const API_NOTIFICATIONS_MARK_READ = "http://127.0.0.1:8003/api/notifications/mark-read/";
 
 let currentEditedPieceId = null;
 let editPiecesCache = [];
@@ -370,12 +372,40 @@ const PLACEHOLDERS = {
     </div>
 `,
 
-    'notifications': `
-        <div class="placeholder">
-            <h3>Notifications</h3>
-            <p>Alerte stock minimum — interface en développement (admin only).</p>
+'notifications': `
+    <div class="notifications-page">
+        <h3>Notifications stock</h3>
+        <p>Alerte stock bas (LOW) ou stock épuisé (ZERO / RESTOCKAGE).</p>
+
+        <div id="notif-error" class="msg-error"></div>
+
+        <div class="list-actions">
+            <button id="notif-refresh" class="btn-secondary">Actualiser</button>
+            <button id="notif-markread" class="btn-primary">Marquer comme lues</button>
         </div>
-    `
+
+        <table class="pieces-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Date</th>
+                    <th>Niveau</th>
+                    <th>Pièce</th>
+                    <th>Emplacement</th>
+                    <th>Qté / Min</th>
+                    <th>Message</th>
+                </tr>
+            </thead>
+            <tbody id="notif-tbody">
+                <tr>
+                    <td colspan="7" style="text-align:center;">
+                        Chargement...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+`
 };
 
 function loadContent(action) {
@@ -427,6 +457,7 @@ function loadContent(action) {
     if (action === 'move-in') { initMoveInUI();}
     if (action === 'move-out') { initMoveOutUI(); }
     if (action === 'history') { initHistoryUI();}
+    if (action === 'notifications') {initNotificationsUI();}
 }
 
 async function loadPiecesList() {
