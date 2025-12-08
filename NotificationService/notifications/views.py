@@ -1,7 +1,9 @@
 from django.shortcuts import render
-from rest_framework import generics, permissions, status
+
+from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 
 from .models import Notification
 from .serializers import NotificationSerializer
@@ -9,7 +11,7 @@ from .serializers import NotificationSerializer
 class NotificationListView(generics.ListAPIView):
 
     serializer_class = NotificationSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         qs = Notification.objects.all()
@@ -27,7 +29,7 @@ class NotificationListView(generics.ListAPIView):
 
 class NotificationMarkReadView(APIView):
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         ids = request.data.get("ids", [])

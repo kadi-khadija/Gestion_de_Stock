@@ -11,6 +11,12 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+}
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,7 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-)t*n=f6i+3y*t)39z_r4gnp*&ka^3m(0o8ba7l#0v#epxv@x6('
+SECRET_KEY = 'django-insecure-+ez5$q^f04n-pih9^n23gijys$)gy%o+5t3thnxdhij#slwwil'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -46,12 +52,22 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTTokenUserAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
 
 ROOT_URLCONF = 'notification_service.urls'
 
@@ -71,7 +87,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'notification_service.wsgi.application'
-
+CORS_ALLOW_ALL_ORIGINS = True
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -102,7 +118,16 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+from corsheaders.defaults import default_headers
 
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "Authorization",
+]
+
+CORS_ALLOWED_ORIGINS = [
+     "http://localhost:8000",
+     "http://127.0.0.1:8000",
+]
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 

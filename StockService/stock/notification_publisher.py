@@ -74,9 +74,12 @@ def check_and_send_stock_alert(stock):
         "message": message,
         "stock_id": stock.id,
         "piece_id": piece.id if piece else None,
-        "reference": getattr(piece, "reference", None),
-        "nom": getattr(piece, "designation", None)
-                        or getattr(piece, "name", None),
+        "piece_reference": getattr(piece, "reference", None) if piece else None,
+        "piece_name": (
+            getattr(piece, "designation", None)
+            or getattr(piece, "nom", None)
+            if piece else None
+        ),
         "location": getattr(stock, "location", "") or "",
         "quantity": current_qty,
         "min_quantity": min_qty,
