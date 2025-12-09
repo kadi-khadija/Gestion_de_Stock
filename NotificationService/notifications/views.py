@@ -3,7 +3,9 @@ from django.db import connection
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
+
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from .models import Notification
 from .serializers import NotificationSerializer
@@ -43,8 +45,8 @@ class NotificationMarkReadView(APIView):
         return Response({"updated": updated}, status=status.HTTP_200_OK)
 
 class NotificationHealthView(APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         try:

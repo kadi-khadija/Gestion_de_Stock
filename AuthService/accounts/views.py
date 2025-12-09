@@ -9,8 +9,8 @@ from .serializers import LoginSerializer
 from .permissions import IsAdmin, IsMagasinier
 
 class LoginView(APIView):
-    authentication_classes = [SessionAuthentication]  # login without token
-    permission_classes = [AllowAny]
+    authentication_classes = []  # login without token
+    permission_classes = []
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -56,8 +56,8 @@ class MeView(APIView):
 class AuthHealthView(APIView):
 
     # Health sans auth pour que Traefik / monitoring puissent y accéder
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         try:

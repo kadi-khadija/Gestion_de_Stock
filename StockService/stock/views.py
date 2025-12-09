@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
 from .notification_publisher import check_and_send_stock_alert
-
+from rest_framework.permissions import  AllowAny 
 from .models import Stock, StockMovement
 from .serializers import (
     StockSerializer,
@@ -213,7 +213,7 @@ class StockMovementListView(APIView):
         
 class StockHealthView(APIView):
     authentication_classes = []
-    permission_classes = []
+    permission_classes = [AllowAny]
     def get(self, request):
         try:
             with connection.cursor() as cursor:

@@ -5,7 +5,7 @@ from .models import Piece
 from .serializers import PieceSerializer
 from django.db.models import Q
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAuthenticated 
+from rest_framework.permissions import IsAuthenticated, , AllowAny 
 from django.db import connection
 
 
@@ -78,7 +78,7 @@ class PieceDetailView(APIView):
 class PiecesHealthView(APIView):
 
     authentication_classes = []
-    permission_classes = []
+    permission_classes = [AllowAny]
 
     def get(self, request):
         try:
