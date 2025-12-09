@@ -1,0 +1,135 @@
+{
+  "systemName": "gestion-de-stock",
+  "version": "1.0.0",
+  "environment": "development",
+  "services": [
+    {
+      "name": "auth-service",
+      "folder": "AuthService",
+      "description": "Service d'authentification et de gestion des utilisateurs",
+      "url": "http://127.0.0.1:8000",
+      "host": "127.0.0.1",
+      "port": 8000,
+      "routes": {
+        "login": {
+          "method": "POST",
+          "path": "/api/auth/login/"
+        },
+        "me": {
+          "method": "GET",
+          "path": "/api/auth/me/"
+        },
+        "refresh": {
+          "method": "POST",
+          "path": "/api/auth/refresh/"
+        },
+        "adminOnly": {
+          "method": "GET",
+          "path": "/api/auth/admin-only/"
+        },
+        "magasinierOnly": {
+          "method": "GET",
+          "path": "/api/auth/magasinier-only/"
+        }
+      }
+    },
+    {
+      "name": "pieces-service",
+      "folder": "PiecesService",
+      "description": "Gestion des pièces de rechange",
+      "url": "http://127.0.0.1:8001",
+      "host": "127.0.0.1",
+      "port": 8001,
+      "routes": {
+        "listPieces": {
+          "method": "GET",
+          "path": "/api/pieces/"
+        },
+        "createPiece": {
+          "method": "POST",
+          "path": "/api/pieces/"
+        },
+        "searchPieces": {
+          "method": "GET",
+          "path": "/api/pieces/?search={query}"
+        },
+        "getPieceById": {
+          "method": "GET",
+          "path": "/api/pieces/{id}/"
+        },
+        "updatePiece": {
+          "method": "PUT",
+          "path": "/api/pieces/{id}/"
+        },
+        "deletePiece": {
+          "method": "DELETE",
+          "path": "/api/pieces/{id}/"
+        }
+      }
+    },
+    {
+      "name": "stock-service",
+      "folder": "StockService",
+      "description": "Gestion du stock et des mouvements",
+      "url": "http://127.0.0.1:8002",
+      "host": "127.0.0.1",
+      "port": 8002,
+      "routes": {
+        "currentStock": {
+          "method": "GET",
+          "path": "/api/stock/"
+        },
+        "createMovement": {
+          "method": "POST",
+          "path": "/api/stock/movement/"
+        },
+        "stockHistory": {
+          "method": "GET",
+          "path": "/api/stock/movements/"
+        }
+      }
+    },
+    {
+      "name": "notification-service",
+      "folder": "NotificationService",
+      "description": "Alerte stock bas / épuisé",
+      "url": "http://127.0.0.1:8003",
+      "host": "127.0.0.1",
+      "port": 8003,
+      "routes": {
+        "listNotifications": {
+          "method": "GET",
+          "path": "/api/notifications/"
+        },
+        "sendNotification": {
+          "method": "POST",
+          "path": "/api/notifications/"
+        },
+        "markAllRead": {
+          "method": "POST",
+          "path": "/api/notifications/mark-read/"
+        }
+      }
+    },
+    {
+      "name": "ui-frontend",
+      "folder": "UI",
+      "description": "Interface utilisateur HTML/JS consommant les services Auth, Pieces, Stock et Notifications",
+      "url": "http://127.0.0.1:5500/UI/",
+      "host": "127.0.0.1",
+      "port": 5500,
+      "routes": {
+        "loginPage": {
+          "type": "page",
+          "path": "login.html",
+          "description": "Page de connexion"
+        },
+        "dashboardPage": {
+          "type": "page",
+          "path": "dashboard.html",
+          "description": "Dashboard après connexion"
+        }
+      }
+    }
+  ]
+}
