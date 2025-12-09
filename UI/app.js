@@ -12,12 +12,68 @@ let editPiecesCache = [];
 // Map de pages -> contenu HTML
 const PLACEHOLDERS = {
     'dashboard': `
-        <div class="placeholder">
-            <h3>Tableau de bord</h3>
-            <p>Vue d'ensemble et raccourcis. (Placeholders — vous ajouterez les widgets plus tard.)</p>
-            <div class="small-note">Utilisez le menu à gauche pour naviguer.</div>
+    <div class="dashboard-page">
+        <h3>Tableau de bord</h3>
+        <p class="dashboard-subtitle">Vue d'ensemble rapide du stock.</p>
+
+        <div id="dash-error" class="msg-error"></div>
+
+        <!-- CARTES STATS -->
+        <div class="dash-cards">
+            <div class="dash-card">
+                <div class="dash-card-label">Pièces au catalogue</div>
+                <div class="dash-card-value" id="dash-total-pieces">-</div>
+            </div>
+
+            <div class="dash-card">
+                <div class="dash-card-label">Lignes de stock</div>
+                <div class="dash-card-value" id="dash-total-stock">-</div>
+            </div>
+
+            <div class="dash-card dash-card-warning">
+                <div class="dash-card-label">Sous le minimum</div>
+                <div class="dash-card-value" id="dash-low-stock">-</div>
+            </div>
+
+            <div class="dash-card dash-card-danger">
+                <div class="dash-card-label">Stock à zéro</div>
+                <div class="dash-card-value" id="dash-zero-stock">-</div>
+            </div>
+
+            <div class="dash-card dash-card-notif">
+                <div class="dash-card-label">Notif. non lues</div>
+                <div class="dash-card-value" id="dash-unread-notif">-</div>
+            </div>
         </div>
-    `,
+
+        <!-- DERNIERS MOUVEMENTS -->
+        <div class="dash-section">
+            <div class="dash-section-header">
+                <h4>Derniers mouvements de stock</h4>
+                <button id="dash-refresh" class="btn-secondary">Actualiser</button>
+            </div>
+
+            <table class="pieces-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Pièce</th>
+                        <th>Qté</th>
+                        <th>Emplacement</th>
+                    </tr>
+                </thead>
+                <tbody id="dash-movements-tbody">
+                    <tr>
+                        <td colspan="5" style="text-align:center;">
+                            Chargement...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+`,
 
     'add-piece': `
         <div class="add-piece-page">
@@ -458,6 +514,7 @@ function loadContent(action) {
     if (action === 'move-out') { initMoveOutUI(); }
     if (action === 'history') { initHistoryUI();}
     if (action === 'notifications') {initNotificationsUI();}
+    if (action === 'dashboard') {initDashboardUI();}
 }
 
 async function loadPiecesList() {
@@ -1760,6 +1817,151 @@ async function markSelectedNotificationsAsRead(tbody, errorBox) {
     }
 }
 
+function initDashboardUI() {
+    const errorBox = document.getElementById("dash-error");
+    const refreshBtn = document.getElementById("dash-refresh");
+    const mvtTbody = document.getElementById("dash-movements-tbody");
+
+    if (!errorBox || !mvtTbody) return;
+
+    loadDashboardData(errorBox, mvtTbody);
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener("click", () => {
+            loadDashboardData(errorBox, mvtTbody);
+        });
+    }
+}
+
+async function loadDashboardData(errorBox, mvtTbody) {
+    errorBox.textContent = "";
+    mvtTbody.innerHTML = `
+        <tr>
+            <td colspan="5" style="text-align:center;">Chargement...</td>
+        </tr>
+    `;
+
+    const token = localStorage.getItem("access");
+
+    try {
+        // On charge tout en parallèle : pièces, stock, notifications, mouvements
+        const [respPieces, respStock, respNotif, respMov] = await Promise.all([
+            fetch(API_PIECES, {
+                headers: { "Authorization": token ? "Bearer " + token : undefined }
+            }),
+            fetch(API_STOCK, {
+                headers: { "Authorization": token ? "Bearer " + token : undefined }
+            }),
+            fetch(`${API_NOTIFICATIONS}?status=UNREAD`, {
+                headers: { "Authorization": token ? "Bearer " + token : undefined }
+            }),
+            fetch(API_STOCK_HISTORY, {
+                headers: { "Authorization": token ? "Bearer " + token : undefined }
+            })
+        ]);
+
+        const piecesData = await respPieces.json().catch(() => null);
+        const stockData  = await respStock.json().catch(() => null);
+        const notifData  = await respNotif.json().catch(() => null);
+        const movData    = await respMov.json().catch(() => null);
+
+        // ---- Comptes simples (avec ou sans pagination DRF) ----
+        const totalPieces = piecesData && typeof piecesData.count === "number"
+            ? piecesData.count
+            : (Array.isArray(piecesData) ? piecesData.length : 0);
+
+        const stockItems = stockData && typeof stockData.count === "number"
+            ? stockData.count
+            : (Array.isArray(stockData) ? stockData.length : 0);
+
+        let stockList = stockData;
+        if (stockData && Array.isArray(stockData.results)) {
+            stockList = stockData.results;
+        }
+        if (!Array.isArray(stockList)) stockList = [];
+
+        const lowCount = stockList.filter(s => s.is_below_minimum).length;
+        const zeroCount = stockList.filter(s => (s.quantity ?? 0) === 0).length;
+
+        const unreadNotif = notifData && typeof notifData.count === "number"
+            ? notifData.count
+            : (Array.isArray(notifData) ? notifData.length : 0);
+
+        // ---- Maj des cartes ----
+        document.getElementById("dash-total-pieces").textContent = totalPieces;
+        document.getElementById("dash-total-stock").textContent = stockItems;
+        document.getElementById("dash-low-stock").textContent = lowCount;
+        document.getElementById("dash-zero-stock").textContent = zeroCount;
+        document.getElementById("dash-unread-notif").textContent = unreadNotif;
+
+        // ---- Dictionnaire id -> "Ref — Nom" pour afficher les mouvements ----
+        let piecesList = piecesData;
+        if (piecesData && Array.isArray(piecesData.results)) {
+            piecesList = piecesData.results;
+        }
+        if (!Array.isArray(piecesList)) piecesList = [];
+
+        const labelById = {};
+        piecesList.forEach(p => {
+            labelById[p.id] = `${p.reference} — ${p.nom}`;
+        });
+
+        // ---- Derniers mouvements ----
+        let movements = movData;
+        if (movData && Array.isArray(movData.results)) {
+            movements = movData.results;
+        }
+        if (!Array.isArray(movements)) movements = [];
+
+        // On ne garde que les 5 plus récents (si l'API ne trie pas déjà)
+        movements = movements.slice(0, 5);
+
+        if (movements.length === 0) {
+            mvtTbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align:center;">
+                        Aucun mouvement enregistré.
+                    </td>
+                </tr>
+            `;
+        } else {
+            mvtTbody.innerHTML = "";
+            movements.forEach(mvt => {
+                const pieceId = mvt.piece_id;
+                const pieceLabel = labelById[pieceId] || (pieceId ? `ID ${pieceId}` : "-");
+
+                const rawDate =
+                    mvt.timestamp ||
+                    mvt.created_at ||
+                    mvt.movement_date ||
+                    mvt.date ||
+                    null;
+
+                const dateStr = rawDate ? formatIsoDate(rawDate) : "";
+
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>${dateStr}</td>
+                    <td>${(mvt.movement_type || "").toUpperCase()}</td>
+                    <td>${pieceLabel}</td>
+                    <td>${mvt.quantity ?? "-"}</td>
+                    <td>${mvt.location || "-"}</td>
+                `;
+                mvtTbody.appendChild(tr);
+            });
+        }
+
+    } catch (err) {
+        console.error(err);
+        errorBox.textContent =
+            "Erreur réseau : impossible de charger les données du tableau de bord.";
+        mvtTbody.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align:center;">Erreur de chargement.</td>
+            </tr>
+        `;
+    }
+}
 
 document.addEventListener('DOMContentLoaded', function () {
     const menu = document.querySelector('.menu-list');
