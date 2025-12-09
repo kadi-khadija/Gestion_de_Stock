@@ -3,11 +3,11 @@ import pika
 import os
 import django
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "notification_service.settings") 
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "notification_service.settings")
 django.setup()
 
 from django.conf import settings
-from notifications.models import Notification  
+from notifications.models import Notification
 
 RABBITMQ_HOST = getattr(settings, "RABBITMQ_HOST", "localhost")
 RABBITMQ_PORT = getattr(settings, "RABBITMQ_PORT", 5672)
@@ -28,10 +28,22 @@ def get_connection():
 
 def handle_stock_alert(message: dict):
     """
-    message est le JSON envoyé par StockService → notification_publisher.check_and_send_stock_alert
+    message est le JSON envoyé par StockService.
     """
     if message.get("type") != "STOCK_ALERT":
         return
+
+    # Récupérer les infos sur la pièce depuis le message
+    piece_id = message.get("piece_id")
+
+    # Essayer de récupérer une éventuelle référence / nom envoyés
+    reference = message.get("reference") or message.get("piece_reference")
+    nom = message.get("nom") or message.get("piece_name")
+
+    # Si on a un piece_id mais pas de référence, on génère quelque chose
+    # du style "ID 6"
+    if piece_id is not None and not reference:
+        reference = f"ID {piece_id}"
 
     Notification.objects.create(
         type=message.get("type", "STOCK_ALERT"),
@@ -39,9 +51,9 @@ def handle_stock_alert(message: dict):
         message=message.get("message", ""),
 
         stock_id=message.get("stock_id"),
-        piece_id=message.get("piece_id"),
-        reference=message.get("piece_reference") or "",
-        nom=message.get("piece_name") or "",
+        piece_id=piece_id,
+        reference=reference or "",
+        nom=nom or "",
 
         location=message.get("location") or "",
 
@@ -65,7 +77,6 @@ def callback(ch, method, properties, body):
         print(" Notification enregistrée.")
     except Exception as e:
         print(" Erreur lors de la sauvegarde de la notification:", e)
-
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
 

@@ -1,8 +1,7 @@
-
+from django.utils import timezone
 import json
 import pika
 from django.conf import settings
-from django.utils import timezone
 
 RABBITMQ_HOST = getattr(settings, "RABBITMQ_HOST", "localhost")
 RABBITMQ_PORT = getattr(settings, "RABBITMQ_PORT", 5672)
@@ -22,7 +21,6 @@ def _get_connection():
 
 
 def publish_stock_alert(alert: dict) -> None:
-
     connection = _get_connection()
     channel = connection.channel()
     channel.queue_declare(queue=RABBITMQ_ALERT_QUEUE, durable=True)
@@ -33,7 +31,7 @@ def publish_stock_alert(alert: dict) -> None:
         routing_key=RABBITMQ_ALERT_QUEUE,
         body=body,
         properties=pika.BasicProperties(
-            delivery_mode=2,  # persistant
+            delivery_mode=2,
             content_type="application/json",
         ),
     )
@@ -41,7 +39,6 @@ def publish_stock_alert(alert: dict) -> None:
 
 
 def check_and_send_stock_alert(stock):
-
     # Sécurité : si pas de min_quantity, on ne fait rien
     min_qty = getattr(stock, "min_quantity", None)
     current_qty = getattr(stock, "quantity", None)
@@ -65,21 +62,17 @@ def check_and_send_stock_alert(stock):
         # Aucun problème de stock, on sort
         return
 
-   
-    piece = getattr(stock, "piece", None)
+    #  ICI la différence importante : on utilise piece_id (champ IntegerField)
+    piece_id = getattr(stock, "piece_id", None)
 
     alert_payload = {
         "type": "STOCK_ALERT",
-        "level": level,               # 'LOW' ou 'ZERO'
+        "level": level,          # 'LOW' ou 'ZERO'
         "message": message,
         "stock_id": stock.id,
-        "piece_id": piece.id if piece else None,
-        "piece_reference": getattr(piece, "reference", None) if piece else None,
-        "piece_name": (
-            getattr(piece, "designation", None)
-            or getattr(piece, "nom", None)
-            if piece else None
-        ),
+        "piece_id": piece_id,    # => plus jamais None si ton Stock a bien une piece_id
+        "piece_reference": None, # on laisse pour plus tard si besoin
+        "piece_name": None,
         "location": getattr(stock, "location", "") or "",
         "quantity": current_qty,
         "min_quantity": min_qty,

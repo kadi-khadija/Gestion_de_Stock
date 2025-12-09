@@ -1568,6 +1568,198 @@ function initHistoryUI() {
     }
 }
 
+function formatIsoDate(iso) {
+    if (!iso) return "";
+    try {
+        return new Date(iso).toLocaleString();
+    } catch {
+        return iso;
+    }
+}
+
+function initNotificationsUI() {
+    const tbody = document.getElementById("notif-tbody");
+    const errorBox = document.getElementById("notif-error");
+    const refreshBtn = document.getElementById("notif-refresh");
+    const markReadBtn = document.getElementById("notif-markread");
+
+    if (!tbody) return;
+
+    // première charge
+    loadNotifications(tbody, errorBox);
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener("click", () => {
+            loadNotifications(tbody, errorBox);
+        });
+    }
+
+    if (markReadBtn) {
+        markReadBtn.addEventListener("click", async () => {
+            await markSelectedNotificationsAsRead(tbody, errorBox);
+            await loadNotifications(tbody, errorBox);
+        });
+    }
+}
+
+async function loadNotifications(tbody, errorBox) {
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="7" style="text-align:center;">Chargement...</td>
+        </tr>
+    `;
+    errorBox.textContent = "";
+
+    const token = localStorage.getItem("access");
+
+    try {
+        // 1) Notifications + 2) Liste des pièces EN MÊME TEMPS
+        const [respNotif, respPieces] = await Promise.all([
+            fetch(`${API_NOTIFICATIONS}?status=UNREAD`, {
+                method: "GET",
+                headers: {
+                    "Authorization": token ? "Bearer " + token : undefined,
+                    "Content-Type": "application/json"
+                }
+            }),
+            fetch(API_PIECES, {
+                method: "GET",
+                headers: {
+                    "Authorization": token ? "Bearer " + token : undefined
+                }
+            })
+        ]);
+
+        const notifData = await respNotif.json().catch(() => null);
+        const piecesData = await respPieces.json().catch(() => null);
+
+        // --- Vérif notifications ---
+        if (!respNotif.ok) {
+            const detail = notifData && notifData.detail ? ` (${notifData.detail})` : "";
+            errorBox.textContent =
+                "Erreur lors du chargement des notifications. Code: "
+                + respNotif.status + detail;
+            tbody.innerHTML = "";
+            return;
+        }
+
+        let items = notifData;
+        if (notifData && notifData.results) {
+            items = notifData.results;
+        }
+
+        if (!Array.isArray(items) || items.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" style="text-align:center;">
+                        Aucune notification à afficher.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        // --- Construire le dictionnaire id → "REF — Nom" ---
+        const labelById = {};
+        if (respPieces.ok) {
+            let pieces = piecesData;
+            if (piecesData && piecesData.results) {
+                pieces = piecesData.results;
+            }
+            if (Array.isArray(pieces)) {
+                pieces.forEach(p => {
+                    // tu peux changer le format comme tu veux
+                    labelById[p.id] = `${p.reference} — ${p.nom}`;
+                });
+            }
+        }
+
+        tbody.innerHTML = "";
+
+        items.forEach((notif) => {
+            let pieceLabel = "-";
+
+            if (notif.piece_id !== null && notif.piece_id !== undefined) {
+                // on essaie d'abord la "vraie" référence
+                if (labelById[notif.piece_id]) {
+                    pieceLabel = labelById[notif.piece_id];
+                } else {
+                    // fallback au cas où la pièce n'est pas trouvée
+                    pieceLabel = `ID ${notif.piece_id}`;
+                }
+            }
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>
+                    <input type="checkbox"
+                           class="notif-checkbox"
+                           value="${notif.id}">
+                </td>
+                <td>${formatIsoDate(notif.created_at)}</td>
+                <td>${notif.level}</td>
+                <td>${pieceLabel}</td>
+                <td>${notif.location || "-"}</td>
+                <td>${notif.quantity ?? "-"} / ${notif.min_quantity ?? "-"}</td>
+                <td>${notif.message || ""}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+    } catch (err) {
+        console.error(err);
+        errorBox.textContent =
+            "Erreur réseau : impossible de contacter le service de notifications.";
+        tbody.innerHTML = "";
+    }
+}
+
+
+async function markSelectedNotificationsAsRead(tbody, errorBox) {
+    const checkboxes = tbody.querySelectorAll(".notif-checkbox:checked");
+    if (!checkboxes.length) {
+        errorBox.textContent = "Sélectionnez au moins une notification.";
+        return;
+    }
+
+    const ids = Array.from(checkboxes).map(cb => parseInt(cb.value, 10));
+    const token = localStorage.getItem("access");
+
+    if (!token) {
+        errorBox.textContent = "Token manquant : veuillez vous reconnecter.";
+        return;
+    }
+
+    try {
+        const resp = await fetch(API_NOTIFICATIONS_MARK_READ, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + token
+            },
+            body: JSON.stringify({ ids })
+        });
+
+        const data = await resp.json().catch(() => null);
+
+        if (!resp.ok) {
+            let msg = "Erreur lors de la mise à jour des notifications.";
+            if (data && data.detail) {
+                msg += " " + data.detail;
+            }
+            errorBox.textContent = `${msg} (code ${resp.status})`;
+            return;
+        }
+
+        errorBox.textContent = ""; // OK
+
+    } catch (err) {
+        console.error(err);
+        errorBox.textContent =
+            "Erreur réseau : impossible de contacter le service de notifications.";
+    }
+}
+
 
 document.addEventListener('DOMContentLoaded', function () {
     const menu = document.querySelector('.menu-list');
