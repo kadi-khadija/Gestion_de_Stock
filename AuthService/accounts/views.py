@@ -1,13 +1,16 @@
+from django.db import connection
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.authentication import BasicAuthentication
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from .serializers import LoginSerializer
 from .permissions import IsAdmin, IsMagasinier
 
 class LoginView(APIView):
-    authentication_classes = []  # login without token
-    permission_classes = []
+    authentication_classes = [SessionAuthentication]  # login without token
+    permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -48,4 +51,31 @@ class MeView(APIView):
             "username": user.username,
             "email": user.email,
             "role": user.role
-        })    
+        })  
+
+class AuthHealthView(APIView):
+
+    # Health sans auth pour que Traefik / monitoring puissent y accéder
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1;")
+            db_status = "UP"
+        except Exception:
+            db_status = "DOWN"
+
+        overall_status = "UP" if db_status == "UP" else "DOWN"
+        http_status = status.HTTP_200_OK if overall_status == "UP" else status.HTTP_503_SERVICE_UNAVAILABLE
+
+        return Response(
+            {
+                "service": "auth-service",
+                "status": overall_status,
+                "database": db_status,
+            },
+            status=http_status,
+        )
+  

@@ -30,6 +30,10 @@
         "magasinierOnly": {
           "method": "GET",
           "path": "/api/auth/magasinier-only/"
+        },
+        "health": {
+          "method": "GET",
+          "path": "/api/auth/health/"
         }
       }
     },
@@ -64,6 +68,10 @@
         "deletePiece": {
           "method": "DELETE",
           "path": "/api/pieces/{id}/"
+        },
+        "health": {
+          "method": "GET",
+          "path": "/api/health/"
         }
       }
     },
@@ -86,6 +94,10 @@
         "stockHistory": {
           "method": "GET",
           "path": "/api/stock/movements/"
+        },
+        "health": {
+          "method": "GET",
+          "path": "/api/health/"
         }
       }
     },
@@ -108,6 +120,10 @@
         "markAllRead": {
           "method": "POST",
           "path": "/api/notifications/mark-read/"
+        },
+        "health": {
+          "method": "GET",
+          "path": "/api/health/"
         }
       }
     },

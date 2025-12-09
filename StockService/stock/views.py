@@ -2,6 +2,7 @@
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.db import connection
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -209,3 +210,26 @@ class StockMovementListView(APIView):
         paginated_qs = paginator.paginate_queryset(qs, request)
         serializer = StockMovementSerializer(paginated_qs, many=True)
         return paginator.get_paginated_response(serializer.data)
+        
+class StockHealthView(APIView):
+    authentication_classes = []
+    permission_classes = []
+    def get(self, request):
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1;")
+            db_status = "UP"
+        except Exception:
+            db_status = "DOWN"
+
+        overall_status = "UP" if db_status == "UP" else "DOWN"
+        http_status = status.HTTP_200_OK if overall_status == "UP" else status.HTTP_503_SERVICE_UNAVAILABLE
+
+        return Response(
+            {
+                "service": "stock-service",
+                "status": overall_status,
+                "database": db_status,
+            },
+            status=http_status,
+        )

@@ -3,7 +3,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-from .views import LoginView, AdminOnlyView, MagasinierOnlyView , MeView
+from .views import LoginView, AdminOnlyView, MagasinierOnlyView , MeView, AuthHealthView
 
 urlpatterns = [
     path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
@@ -12,5 +12,6 @@ urlpatterns = [
     #for permissions DRF
     path('admin-only/', AdminOnlyView.as_view(), name='admin_only'),
     path('magasinier-only/', MagasinierOnlyView.as_view(), name='magasinier_only'),
+    path('health/', AuthHealthView.as_view(), name='auth_health'),
     
 ]

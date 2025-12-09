@@ -6,6 +6,7 @@ from .serializers import PieceSerializer
 from django.db.models import Q
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated 
+from django.db import connection
 
 
 # Custom pagination
@@ -74,3 +75,27 @@ class PieceDetailView(APIView):
 
         piece.delete()
         return Response({"detail": "Pièce supprimée"}, status=204)
+class PiecesHealthView(APIView):
+
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1;")
+            db_status = "UP"
+        except Exception:
+            db_status = "DOWN"
+
+        overall_status = "UP" if db_status == "UP" else "DOWN"
+        http_status = status.HTTP_200_OK if overall_status == "UP" else status.HTTP_503_SERVICE_UNAVAILABLE
+
+        return Response(
+            {
+                "service": "pieces-service",
+                "status": overall_status,
+                "database": db_status,
+            },
+            status=http_status,
+        )
