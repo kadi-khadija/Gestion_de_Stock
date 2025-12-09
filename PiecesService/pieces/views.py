@@ -5,7 +5,7 @@ from .models import Piece
 from .serializers import PieceSerializer
 from django.db.models import Q
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAuthenticated, , AllowAny 
+from rest_framework.permissions import IsAuthenticated, AllowAny 
 from django.db import connection
 
 
