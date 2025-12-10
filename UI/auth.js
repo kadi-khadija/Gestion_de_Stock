@@ -1,5 +1,5 @@
-/* CONFIG */
-const API_ME = "http://127.0.0.1:8000/api/auth/me/";
+* CONFIG */
+const API_ME = "http://127.0.0.1:8090/api/auth/me/";  // URL complète, via Traefik
 const LOGIN_PAGE = "login.html";
 
 
