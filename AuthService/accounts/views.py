@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from .serializers import LoginSerializer
 from .permissions import IsAdmin, IsMagasinier
 
+# Pas d’authentification ni permissions, le middleware skip cette route (chemin public). 
 class LoginView(APIView):
     authentication_classes = []  # login without token
     permission_classes = []
@@ -42,7 +43,7 @@ class MagasinierOnlyView(APIView):
         return Response({"message": f"Bienvenue magasinier {request.user.username} !"})
     
 class MeView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated] #Nécessite d’être authentifié.
 
     def get(self, request):
         user = request.user
@@ -53,7 +54,7 @@ class MeView(APIView):
             "role": user.role
         })  
 
-class AuthHealthView(APIView):
+class AuthHealthView(APIView): 
 
     # Health sans auth pour que Traefik / monitoring puissent y accéder
     authentication_classes = [SessionAuthentication]
@@ -62,10 +63,10 @@ class AuthHealthView(APIView):
     def get(self, request):
         try:
             with connection.cursor() as cursor:
-                cursor.execute("SELECT 1;")
-            db_status = "UP"
+                cursor.execute("SELECT 1;") # try to select 1 from the db, 
+            db_status = "UP" # si ça marche  database: "UP", status HTTP 200 
         except Exception:
-            db_status = "DOWN"
+            db_status = "DOWN" #sinon database: "DOWN", status HTTP 503
 
         overall_status = "UP" if db_status == "UP" else "DOWN"
         http_status = status.HTTP_200_OK if overall_status == "UP" else status.HTTP_503_SERVICE_UNAVAILABLE

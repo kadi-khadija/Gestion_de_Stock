@@ -19,13 +19,13 @@ from .serializers import (
 
 
 # --- Pagination ---
-
+# Une pagination pour la liste de stock.
 class StockPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = "page_size"
     max_page_size = 100
 
-
+# une autre pour les mouvements.
 class StockMovementPagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = "page_size"
@@ -58,7 +58,7 @@ class StockListCreateView(APIView):
 
     def post(self, request):
         """
-        Body JSON:
+        Body JSON exemple:
         {
           "piece_id": 1,
           "location": "Magasin central",
@@ -88,7 +88,7 @@ class StockDetailView(APIView):
     def get_object(self, pk):
         return get_object_or_404(Stock, pk=pk)
 
-    def get(self, request, pk):
+    def get(self, request, pk): 
         stock = self.get_object(pk)
         serializer = StockSerializer(stock)
         return Response(serializer.data)
@@ -187,6 +187,7 @@ class StockMovementCreateView(APIView):
 
 # --- Historique des mouvements ---
 
+# Permet de voir l’historique global, ou filtré par pièce, lieu, type de mouvement.
 class StockMovementListView(APIView):
     """
     GET /api/stock/movements/?piece_id=...&location=...&type=IN|OUT

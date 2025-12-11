@@ -1,7 +1,7 @@
 from django.db import models
 
 
-class Notification(models.Model):
+class Notification(models.Model): #C’est une base d’historique des alertes.
     LEVEL_CHOICES = (
         ("LOW", "Stock bas"),
         ("ZERO", "Stock épuisé"),

@@ -3,6 +3,7 @@ import json
 import pika
 from django.conf import settings
 
+#Config & connexion avec RabbitMQ
 RABBITMQ_HOST = getattr(settings, "RABBITMQ_HOST", "localhost")
 RABBITMQ_PORT = getattr(settings, "RABBITMQ_PORT", 5672)
 RABBITMQ_USER = getattr(settings, "RABBITMQ_USER", "guest")

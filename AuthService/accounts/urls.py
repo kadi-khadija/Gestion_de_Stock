@@ -5,6 +5,7 @@ from rest_framework_simplejwt.views import (
 )
 from .views import LoginView, AdminOnlyView, MagasinierOnlyView , MeView, AuthHealthView
 
+# les URLs finales :
 urlpatterns = [
     path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('login/', LoginView.as_view(), name='login'),

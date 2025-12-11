@@ -16,7 +16,8 @@ RABBITMQ_PASSWORD = getattr(settings, "RABBITMQ_PASSWORD", "guest")
 RABBITMQ_ALERT_QUEUE = getattr(settings, "RABBITMQ_ALERT_QUEUE", "stock_alerts")
 
 
-def get_connection():
+# Permet de se connecter à RabbitMQ via pika
+def get_connection(): 
     credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASSWORD)
     params = pika.ConnectionParameters(
         host=RABBITMQ_HOST,
@@ -25,7 +26,7 @@ def get_connection():
     )
     return pika.BlockingConnection(params)
 
-
+# traite les messages envoyés par StockService.
 def handle_stock_alert(message: dict):
     """
     message est le JSON envoyé par StockService.
@@ -45,6 +46,7 @@ def handle_stock_alert(message: dict):
     if piece_id is not None and not reference:
         reference = f"ID {piece_id}"
 
+    # cree une notification
     Notification.objects.create(
         type=message.get("type", "STOCK_ALERT"),
         level=message.get("level"),
@@ -79,11 +81,11 @@ def callback(ch, method, properties, body):
         print(" Erreur lors de la sauvegarde de la notification:", e)
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
-
+#Le service écoute la queue "stock_alerts"
 def main():
     connection = get_connection()
     channel = connection.channel()
-
+    
     channel.queue_declare(queue=RABBITMQ_ALERT_QUEUE, durable=True)
 
     channel.basic_qos(prefetch_count=1)

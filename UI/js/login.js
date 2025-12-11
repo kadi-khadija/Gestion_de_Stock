@@ -13,13 +13,14 @@ document.getElementById("loginForm").addEventListener("submit", async function(e
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({username, password})
-});
+}); //envoies les creds à AuthService via Traefik.
 
         if (!response.ok) {
             errorBox.textContent = "Nom d'utilisateur ou mot de passe incorrect.";
             return;
-        }
+        }// si AuthService ne valide pas l'utilisateur (mot de pass ou username)
 
+        //cas de succes (user valide)
         const data = await response.json();
 
         // Stocker les tokens
@@ -29,8 +30,11 @@ document.getElementById("loginForm").addEventListener("submit", async function(e
 
         // Redirection après connexion
         window.location.href = "dashboard.html";
-
+        //L'UI stocke les tokens JWT + le rôle dans localStorage, puis bascule sur le dashboard.
     } catch (error) {
         errorBox.textContent = "Erreur de connexion au serveur.";
     }
 });
+
+
+//donc, La page de login appelle /api/auth/login/ via Traefik, récupère les tokens JWT, les stocke dans le localStorage et redirige vers le dashboard.

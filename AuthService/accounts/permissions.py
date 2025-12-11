@@ -1,5 +1,7 @@
 from rest_framework.permissions import BasePermission
 
+# Ces classes sont utilisées dans les vues AdminOnlyView et MagasinierOnlyView pour démontrer les permissions.
+
 class IsAdmin(BasePermission):
 
     def has_permission(self, request, view):

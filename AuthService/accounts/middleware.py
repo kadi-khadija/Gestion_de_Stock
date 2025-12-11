@@ -8,22 +8,25 @@ class JWTMiddleware:
 
     def __call__(self, request):
         
+        # une liste de chemins publics 
         public_paths = [
             "/api/auth/login/",
             "/api/auth/refresh/",
             "/api/auth/health/",
         ]
         
+        # laisse passer les chemains publics sans token
         if any(request.path.startswith(p) for p in public_paths):
             return self.get_response(request)
 
         if request.path.startswith("/admin/"):
             return self.get_response(request)
-
+        
+        # djang0 lit le header de authorization
         auth_header = request.headers.get("Authorization")
 
         if not auth_header or not auth_header.startswith("Bearer "):
-            return JsonResponse({"detail": "Token manquant"}, status=401)
+            return JsonResponse({"detail": "Token manquant"}, status=401) 
 
         token = auth_header.split(" ")[1]
 
@@ -33,4 +36,4 @@ class JWTMiddleware:
         except Exception:
             return JsonResponse({"detail": "Token invalide"}, status=401)
 
-        return self.get_response(request)
+        return self.get_response(request) # si token est valide, il récupère l’utilisateur 

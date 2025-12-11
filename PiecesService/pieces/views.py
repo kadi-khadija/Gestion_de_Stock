@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db import connection
 
 
-# Custom pagination
+# Custom pagination (Pour rendre l’UI plus fluide)
 class PiecePagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = "page_size"
@@ -17,7 +17,7 @@ class PiecePagination(PageNumberPagination):
 
 
 class PieceListCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated] #obligation d'avoir un token JWT valide pour accéder à cette vue.
     def get(self, request):
         search = request.GET.get("search", "")
         queryset = Piece.objects.all()
@@ -37,15 +37,15 @@ class PieceListCreateView(APIView):
 
     def post(self, request):
         serializer = PieceSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
+        if serializer.is_valid(): #Si les données sont valides
+            serializer.save() # création de piece en base.
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PieceDetailView(APIView):
-    permission_classes = [IsAuthenticated]
-    def get(self, request, pk):
+    permission_classes = [IsAuthenticated] #obligation d'avoir un token JWT valide pour accéder à cette vue.
+    def get(self, request, pk): #récupérer une pièce précise
         try:
             piece = Piece.objects.get(pk=pk)
         except Piece.DoesNotExist:
@@ -54,31 +54,33 @@ class PieceDetailView(APIView):
         serializer = PieceSerializer(piece)
         return Response(serializer.data)
 
-    def put(self, request, pk):
+    def put(self, request, pk): #mise à jour
         try:
             piece = Piece.objects.get(pk=pk)
         except Piece.DoesNotExist:
             return Response({"detail": "Pièce introuvable"}, status=404)
 
-        serializer = PieceSerializer(piece, data=request.data)
+        serializer = PieceSerializer(piece, data=request.data) #applique les nouvelles données
         if serializer.is_valid():
-            serializer.save()
+            serializer.save() # si tout va bien sauvegarde la piece
             return Response(serializer.data)
 
         return Response(serializer.errors, status=400)
 
-    def delete(self, request, pk):
+    def delete(self, request, pk): # suppression d'une piece
         try:
             piece = Piece.objects.get(pk=pk)
         except Piece.DoesNotExist:
             return Response({"detail": "Pièce introuvable"}, status=404)
 
-        piece.delete()
+        piece.delete() 
         return Response({"detail": "Pièce supprimée"}, status=204)
-class PiecesHealthView(APIView):
 
+
+class PiecesHealthView(APIView):
+ #Ce endpoint est utilisé par Consul / Traefik pour savoir si PiecesService est en bonne santé.
     authentication_classes = []
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny] #Accessible sans token (la logique pour un health check)
 
     def get(self, request):
         try:

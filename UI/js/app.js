@@ -1,6 +1,6 @@
 
 const API_BASE = "http://127.0.0.1:8090";   // Traefik
-
+// tous les appels rest assent par Traefik sur le port 8090.
 const API_PIECES = `${API_BASE}/api/pieces/`;
 const API_STOCK = `${API_BASE}/api/stock/`;
 const API_STOCK_MOVEMENT = `${API_BASE}/api/stock/movement/`;

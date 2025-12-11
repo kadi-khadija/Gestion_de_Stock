@@ -17,9 +17,9 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+SIMPLE_JWT = { #es mêmes durées que AuthService
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30), #Access token valable 30 minutes
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),  #refresh 1 jour
 }
 
 
