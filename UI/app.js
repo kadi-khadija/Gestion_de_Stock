@@ -1,10 +1,12 @@
 
-const API_PIECES = "http://127.0.0.1:8001/api/pieces/";
-const API_STOCK = "http://127.0.0.1:8002/api/stock/";
-const API_STOCK_MOVEMENT = "http://127.0.0.1:8002/api/stock/movement/";
-const API_STOCK_HISTORY = "http://127.0.0.1:8002/api/stock/movements/";
-const API_NOTIFICATIONS = "http://127.0.0.1:8003/api/notifications/";
-const API_NOTIFICATIONS_MARK_READ = "http://127.0.0.1:8003/api/notifications/mark-read/";
+const API_BASE = "http://127.0.0.1:8090";   // Traefik
+
+const API_PIECES = `${API_BASE}/api/pieces/`;
+const API_STOCK = `${API_BASE}/api/stock/`;
+const API_STOCK_MOVEMENT = `${API_BASE}/api/stock/movement/`;
+const API_STOCK_HISTORY = `${API_BASE}/api/stock/movements/`;
+const API_NOTIFICATIONS = `${API_BASE}/api/notifications/`;
+const API_NOTIFICATIONS_MARK_READ = `${API_BASE}/api/notifications/mark-read/`;
 
 let currentEditedPieceId = null;
 let editPiecesCache = [];

@@ -7,9 +7,14 @@ class JWTMiddleware:
         self.jwt_auth = JWTAuthentication()
 
     def __call__(self, request):
-
-        # Allow login without token
-        if "login" in request.path or "refresh" in request.path:
+        
+        public_paths = [
+            "/api/auth/login/",
+            "/api/auth/refresh/",
+            "/api/auth/health/",
+        ]
+        
+        if any(request.path.startswith(p) for p in public_paths):
             return self.get_response(request)
 
         if request.path.startswith("/admin/"):
