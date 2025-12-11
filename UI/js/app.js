@@ -10,473 +10,71 @@ const API_NOTIFICATIONS_MARK_READ = `${API_BASE}/api/notifications/mark-read/`;
 
 let currentEditedPieceId = null;
 let editPiecesCache = [];
+let templatesLoaded = false;
 
-// Map de pages -> contenu HTML
-const PLACEHOLDERS = {
-    'dashboard': `
-    <div class="dashboard-page">
-        <h3>Tableau de bord</h3>
-        <p class="dashboard-subtitle">Vue d'ensemble rapide du stock.</p>
 
-        <div id="dash-error" class="msg-error"></div>
+async function ensureTemplatesLoaded() {
+    if (templatesLoaded) return;
 
-        <!-- CARTES STATS -->
-        <div class="dash-cards">
-            <div class="dash-card">
-                <div class="dash-card-label">Pièces au catalogue</div>
-                <div class="dash-card-value" id="dash-total-pieces">-</div>
+    try {
+        // dashboard.html est dans /template/, app.html aussi
+        const resp = await fetch('app.html');
+        if (!resp.ok) {
+            console.error('Erreur chargement app.html', resp.status);
+            return;
+        }
+
+        const html = await resp.text();
+
+        const container = document.createElement('div');
+        container.id = 'templates-container';
+        container.style.display = 'none';
+        container.innerHTML = html;
+
+        document.body.appendChild(container);
+        templatesLoaded = true;
+    } catch (err) {
+        console.error('Erreur fetch app.html', err);
+    }
+}
+
+async function renderTemplate(action) {
+    await ensureTemplatesLoaded();
+
+    const templateMap = {
+        'dashboard': 'view-dashboard',
+        'add-piece': 'view-add-piece',
+        'list-pieces': 'view-list-pieces',
+        'search-piece': 'view-search-piece',
+        'edit-piece': 'view-edit-piece',
+        'stock': 'view-stock',
+        'move-in': 'view-move-in',
+        'move-out': 'view-move-out',
+        'history': 'view-history',
+        'notifications': 'view-notifications',
+    };
+
+    const tplId = templateMap[action] || 'view-dashboard';
+    const tpl = document.getElementById(tplId);
+
+    if (!tpl) {
+        return `
+            <div class="placeholder">
+                <h3>Page</h3>
+                <p>Contenu en développement.</p>
             </div>
+        `;
+    }
 
-            <div class="dash-card">
-                <div class="dash-card-label">Lignes de stock</div>
-                <div class="dash-card-value" id="dash-total-stock">-</div>
-            </div>
+    return tpl.innerHTML.trim();
+}
 
-            <div class="dash-card dash-card-warning">
-                <div class="dash-card-label">Sous le minimum</div>
-                <div class="dash-card-value" id="dash-low-stock">-</div>
-            </div>
-
-            <div class="dash-card dash-card-danger">
-                <div class="dash-card-label">Stock à zéro</div>
-                <div class="dash-card-value" id="dash-zero-stock">-</div>
-            </div>
-
-            <div class="dash-card dash-card-notif">
-                <div class="dash-card-label">Notif. non lues</div>
-                <div class="dash-card-value" id="dash-unread-notif">-</div>
-            </div>
-        </div>
-
-        <!-- DERNIERS MOUVEMENTS -->
-        <div class="dash-section">
-            <div class="dash-section-header">
-                <h4>Derniers mouvements de stock</h4>
-                <button id="dash-refresh" class="btn-secondary">Actualiser</button>
-            </div>
-
-            <table class="pieces-table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Type</th>
-                        <th>Pièce</th>
-                        <th>Qté</th>
-                        <th>Emplacement</th>
-                    </tr>
-                </thead>
-                <tbody id="dash-movements-tbody">
-                    <tr>
-                        <td colspan="5" style="text-align:center;">
-                            Chargement...
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-`,
-
-    'add-piece': `
-        <div class="add-piece-page">
-            <div class="add-piece-header">
-                <h3>Ajouter une pièce</h3>
-                <p>Créer une nouvelle pièce dans le catalogue.</p>
-            </div>
-
-            <div id="add-piece-success" class="msg-success"></div>
-            <div id="add-piece-error" class="msg-error"></div>
-
-            <form id="add-piece-form" class="add-piece-form">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="ap-ref">Référence <span class="required">*</span></label>
-                        <input type="text" id="ap-ref" name="reference" required placeholder="ex: MTR-455">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="ap-name">Nom <span class="required">*</span></label>
-                        <input type="text" id="ap-name" name="nom" required placeholder="ex: Filtre à huile">
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="ap-category">Catégorie <span class="required">*</span></label>
-                        <input type="text" id="ap-category" name="categorie" required placeholder="ex: Électronique, Mécanique...">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="ap-buy">Prix d'achat <span class="required">*</span></label>
-                        <input type="number" step="0.01" id="ap-buy" name="prix_achat" required placeholder="ex: 100.00">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="ap-sell">Prix de vente <span class="required">*</span></label>
-                        <input type="number" step="0.01" id="ap-sell" name="prix_vente" required placeholder="ex: 150.00">
-                    </div>
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn-primary">Enregistrer la pièce</button>
-                    <button type="reset" class="btn-secondary">Réinitialiser</button>
-                </div>
-
-                <p class="small-note">
-                    Les champs marqués par <span class="required">*</span> sont obligatoires.<br>
-                    Le prix de vente doit être supérieur ou égal au prix d'achat.
-                </p>
-            </form>
-        </div>
-    `,
-
-    'list-pieces': `
-        <div class="list-pieces-page">
-           <h3>Liste des pièces</h3>
-           <p>Catalogue complet des pièces enregistrées.</p>
-
-          <div id="pieces-error" class="msg-error"></div>
-
-          <div class="list-actions">
-            <button id="refresh-pieces" class="btn-secondary">Actualiser</button>
-          </div>
-
-         <table class="pieces-table">
-            <thead>
-                <tr>
-                    
-                    <th>Référence</th>
-                    <th>Nom</th>
-                    <th>Catégorie</th>
-                    <th>Prix achat</th>
-                    <th>Prix vente</th>
-                </tr>
-            </thead>
-            <tbody id="pieces-table-body">
-                <tr><td colspan="5" style="text-align:center;">Chargement...</td></tr>
-            </tbody>
-         </table>
-        </div>
-    `,
-
-    'search-piece': `
-        <div class="search-piece-page">
-             <h3>Rechercher une pièce</h3>
-             <p>Rechercher par référence, nom ou catégorie.</p>
-
-            <form id="search-piece-form" class="search-form">
-              <input
-                  type="text"
-                  id="search-piece-input"
-                  class="search-input"
-                  placeholder="Ex: FHM, filtre, entretien..."
-                />
-               <button type="submit" class="btn-primary">Rechercher</button>
-               <button type="button" id="search-piece-reset" class="btn-secondary">Réinitialiser</button>
-            </form>
-
-            <div id="search-piece-error" class="msg-error"></div>
-
-            <table class="pieces-table">
-               <thead>
-                  <tr>
-                    <th>Référence</th>
-                    <th>Nom</th>
-                    <th>Catégorie</th>
-                    <th>Prix achat</th>
-                    <th>Prix vente</th>
-                  </tr>
-               </thead>
-               <tbody id="search-piece-tbody">
-                <tr>
-                    <td colspan="5" style="text-align:center;">
-                        Saisissez un terme et lancez une recherche.
-                    </td>
-                </tr>
-               </tbody>
-           </table>
-       </div>
-    `,
-
-'edit-piece': `
-    <div class="edit-piece-page">
-        <div class="add-piece-header">
-            <h3>Modifier / Supprimer une pièce</h3>
-            <p>Choisissez une pièce, modifiez ses informations ou supprimez-la.</p>
-        </div>
-
-        <div id="edit-piece-success" class="msg-success"></div>
-        <div id="edit-piece-error" class="msg-error"></div>
-
-        <div class="form-group">
-            <label for="edit-piece-select">Sélectionner une pièce</label>
-            <div style="display:flex; gap:8px;">
-                <select id="edit-piece-select" class="select-piece">
-                    <option value="">-- Choisir une pièce --</option>
-                </select>
-                <button id="edit-piece-reload" class="btn-secondary">Recharger</button>
-            </div>
-        </div>
-
-        <form id="edit-piece-form" class="add-piece-form">
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="ep-ref">Référence <span class="required">*</span></label>
-                    <input type="text" id="ep-ref" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="ep-name">Nom <span class="required">*</span></label>
-                    <input type="text" id="ep-name" required>
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="ep-category">Catégorie <span class="required">*</span></label>
-                    <input type="text" id="ep-category" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="ep-buy">Prix d'achat <span class="required">*</span></label>
-                    <input type="number" step="0.01" id="ep-buy" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="ep-sell">Prix de vente <span class="required">*</span></label>
-                    <input type="number" step="0.01" id="ep-sell" required>
-                </div>
-            </div>
-
-            <div class="form-actions">
-                <button type="submit" class="btn-primary">Enregistrer les modifications</button>
-                <button type="button" id="edit-piece-delete" class="btn-danger">Supprimer la pièce</button>
-            </div>
-
-            <p class="small-note">
-                Le prix de vente doit être supérieur ou égal au prix d'achat.<br>
-                La suppression est définitive.
-            </p>
-        </form>
-    </div>
-`,
-
-'stock': `
-    <div class="stock-page">
-        <h3>Stock disponible</h3>
-        <p>Quantités en stock par pièce et par emplacement.</p>
-
-        <div id="stock-error" class="msg-error"></div>
-
-        <div class="list-actions">
-            <button id="stock-refresh" class="btn-secondary">Actualiser</button>
-        </div>
-
-        <table class="pieces-table">
-            <thead>
-                <tr>
-                    <th>pièce</th>
-                    <th>Emplacement</th>
-                    <th>Quantité</th>
-                    <th>Seuil min.</th>
-                    <th>Statut</th>
-                    <th>Dernière mise à jour</th>
-                </tr>
-            </thead>
-            <tbody id="stock-tbody">
-                <tr>
-                    <td colspan="6" style="text-align:center;">Chargement...</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-`,
-
-'move-in': `
-    <div class="move-page">
-        <div class="add-piece-header">
-            <h3>Mouvement d'entrée</h3>
-            <p>Enregistrer une entrée de stock pour une pièce.</p>
-        </div>
-
-        <div id="movein-success" class="msg-success"></div>
-        <div id="movein-error" class="msg-error"></div>
-
-        <div class="form-group">
-            <label for="movein-piece-select">Pièce</label>
-            <div style="display:flex; gap:8px;">
-                <select id="movein-piece-select" class="select-piece">
-                    <option value="">-- Choisir une pièce --</option>
-                </select>
-                <button id="movein-reload" class="btn-secondary">Recharger</button>
-            </div>
-        </div>
-
-        <form id="movein-form" class="add-piece-form">
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="movein-qty">Quantité <span class="required">*</span></label>
-                    <input type="number" id="movein-qty" min="1" required placeholder="Ex: 10">
-                </div>
-
-                <div class="form-group">
-                    <label for="movein-location">Emplacement</label>
-                    <input type="text" id="movein-location" placeholder="Ex: A-01, B-12...">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="movein-minqty">Seuil minimum (optionnel)</label>
-                    <input type="number" id="movein-minqty" min="0" placeholder="Ex: 3">
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="movein-description">Description</label>
-                <textarea id="movein-description" rows="2" placeholder="Ex: Réception fournisseur, correction de stock..."></textarea>
-            </div>
-
-            <div class="form-actions">
-                <button type="submit" class="btn-primary">Enregistrer le mouvement</button>
-            </div>
-
-            <p class="small-note">
-                Le mouvement sera enregistré comme une <strong>entrée (IN)</strong> de stock.
-            </p>
-        </form>
-    </div>
-`,
-
-'move-out': `
-    <div class="move-page">
-        <div class="add-piece-header">
-            <h3>Mouvement de sortie</h3>
-            <p>Enregistrer une sortie de stock pour une pièce.</p>
-        </div>
-
-        <div id="moveout-success" class="msg-success"></div>
-        <div id="moveout-error" class="msg-error"></div>
-
-        <div class="form-group">
-            <label for="moveout-piece-select">Pièce</label>
-            <div style="display:flex; gap:8px;">
-                <select id="moveout-piece-select" class="select-piece">
-                    <option value="">-- Choisir une pièce --</option>
-                </select>
-                <button id="moveout-reload" class="btn-secondary">Recharger</button>
-            </div>
-        </div>
-
-        <form id="moveout-form" class="add-piece-form">
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="moveout-qty">Quantité <span class="required">*</span></label>
-                    <input type="number" id="moveout-qty" min="1" required placeholder="Ex: 2">
-                </div>
-
-                <div class="form-group">
-                    <label for="moveout-location">Emplacement</label>
-                    <input type="text" id="moveout-location" placeholder="Ex: A-01, B-12...">
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="moveout-description">Description</label>
-                <textarea id="moveout-description" rows="2" placeholder="Ex: Vente client, consommation atelier..."></textarea>
-            </div>
-
-            <div class="form-actions">
-                <button type="submit" class="btn-primary">Enregistrer le mouvement</button>
-            </div>
-
-            <p class="small-note">
-                Le mouvement sera enregistré comme une <strong>sortie (OUT)</strong> de stock.<br>
-                Assurez-vous que la quantité disponible est suffisante.
-            </p>
-        </form>
-    </div>
-`,
-
-'history': `
-    <div class="history-page">
-        <h3>Historique des mouvements</h3>
-        <p>Liste des mouvements d'entrée et de sortie de stock.</p>
-
-        <div id="history-error" class="msg-error"></div>
-
-        <div class="list-actions">
-            <button id="history-refresh" class="btn-secondary">Actualiser</button>
-        </div>
-
-        <table class="pieces-table">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Type</th>
-                    <th>pièce</th>
-                    <th>Quantité</th>
-                    <th>Emplacement</th>
-                    <th>Description</th>
-                </tr>
-            </thead>
-            <tbody id="history-tbody">
-                <tr>
-                    <td colspan="6" style="text-align:center;">
-                        Chargement...
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-`,
-
-'notifications': `
-    <div class="notifications-page">
-        <h3>Notifications stock</h3>
-        <p>Alerte stock bas (LOW) ou stock épuisé (ZERO / RESTOCKAGE).</p>
-
-        <div id="notif-error" class="msg-error"></div>
-
-        <div class="list-actions">
-            <button id="notif-refresh" class="btn-secondary">Actualiser</button>
-            <button id="notif-markread" class="btn-primary">Marquer comme lues</button>
-        </div>
-
-        <table class="pieces-table">
-            <thead>
-                <tr>
-                    <th></th>
-                    <th>Date</th>
-                    <th>Niveau</th>
-                    <th>Pièce</th>
-                    <th>Emplacement</th>
-                    <th>Qté / Min</th>
-                    <th>Message</th>
-                </tr>
-            </thead>
-            <tbody id="notif-tbody">
-                <tr>
-                    <td colspan="7" style="text-align:center;">
-                        Chargement...
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-`
-};
-
-function loadContent(action) {
+async function loadContent(action) {
     const place = document.getElementById('content-area');
     const title = document.getElementById('page-title');
     if (!place || !title) return;
 
-    const content = PLACEHOLDERS[action] || `
-        <div class="placeholder">
-            <h3>Page</h3>
-            <p>Contenu en développement.</p>
-        </div>
-    `;
+    const content = await renderTemplate(action);
     place.innerHTML = content;
 
     const human = {
@@ -494,24 +92,15 @@ function loadContent(action) {
     title.textContent = human[action] || 'Tableau de bord';
 
     // Initialisation spécifique par page
-    if (action === 'add-piece') {
-        initAddPieceUI();
-    }
+    if (action === 'add-piece') {initAddPieceUI();}
     if (action === 'list-pieces') {
         loadPiecesList();
-
         const btn = document.getElementById("refresh-pieces");
         btn.addEventListener("click", () => loadPiecesList());
     }
-    if (action === 'search-piece') {
-        initSearchPieceUI();
-    }
-    if (action === 'edit-piece') {
-        initEditPieceUI();
-    }
-    if (action === 'stock') {
-        initStockUI();
-    } 
+    if (action === 'search-piece') {initSearchPieceUI();}
+    if (action === 'edit-piece') {initEditPieceUI();}
+    if (action === 'stock') {initStockUI();} 
     if (action === 'move-in') { initMoveInUI();}
     if (action === 'move-out') { initMoveOutUI(); }
     if (action === 'history') { initHistoryUI();}
@@ -588,8 +177,6 @@ async function loadPiecesList() {
         tbody.innerHTML = "";
     }
 }
-
-
 
 function initAddPieceUI() {
     const form = document.getElementById('add-piece-form');
@@ -1208,7 +795,6 @@ async function loadStock(tbody, errorBox) {
     }
 }
 
-
 function initMoveInUI() {
     const select = document.getElementById("movein-piece-select");
     const reloadBtn = document.getElementById("movein-reload");
@@ -1486,8 +1072,6 @@ function initMoveOutUI() {
         }
     });
 }
-
-
 
 async function loadStockHistory(tbody, errorBox) {
     tbody.innerHTML = `
@@ -1773,7 +1357,6 @@ async function loadNotifications(tbody, errorBox) {
     }
 }
 
-
 async function markSelectedNotificationsAsRead(tbody, errorBox) {
     const checkboxes = tbody.querySelectorAll(".notif-checkbox:checked");
     if (!checkboxes.length) {
@@ -1969,14 +1552,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const menu = document.querySelector('.menu-list');
     if (!menu) return;
 
-    menu.addEventListener('click', function (e) {
+    menu.addEventListener('click', async function (e) {
         const li = e.target.closest('.menu-item');
         if (!li || !menu.contains(li)) return;
 
         const action = li.dataset.action;
         if (!action) return;
 
-        loadContent(action);
+        await loadContent(action);
     });
 
     
