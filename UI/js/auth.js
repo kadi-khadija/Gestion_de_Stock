@@ -75,7 +75,9 @@ async function applyBasicProtection() {
         const user = await resp.json();
 
         const role = (user.role ?? "").toLowerCase().trim();
-
+        // stocker le rôle pour que app.js puisse l'utiliser
+        localStorage.setItem("role", role);
+        
         document.getElementById("user-info").textContent =
             `${user.username} — ${role}`;
 

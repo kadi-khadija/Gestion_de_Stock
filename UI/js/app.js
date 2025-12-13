@@ -1419,133 +1419,155 @@ function initDashboardUI() {
 }
 
 async function loadDashboardData(errorBox, mvtTbody) {
-    errorBox.textContent = "";
-    mvtTbody.innerHTML = `
-        <tr>
-            <td colspan="5" style="text-align:center;">Chargement...</td>
-        </tr>
-    `;
+  errorBox.textContent = "";
+  mvtTbody.innerHTML = `
+    <tr>
+      <td colspan="5" style="text-align:center;">Chargement...</td>
+    </tr>
+  `;
 
-    const token = localStorage.getItem("access");
+  const token = localStorage.getItem("access");
+  const role = (localStorage.getItem("role") || "").toLowerCase();
+  const isAdmin = role === "admin";
 
-    try {
-        // On charge tout en parallèle : pièces, stock, notifications, mouvements
-        const [respPieces, respStock, respNotif, respMov] = await Promise.all([
-            fetch(API_PIECES, {
-                headers: { "Authorization": token ? "Bearer " + token : undefined }
-            }),
-            fetch(API_STOCK, {
-                headers: { "Authorization": token ? "Bearer " + token : undefined }
-            }),
-            fetch(`${API_NOTIFICATIONS}?status=UNREAD`, {
-                headers: { "Authorization": token ? "Bearer " + token : undefined }
-            }),
-            fetch(API_STOCK_HISTORY, {
-                headers: { "Authorization": token ? "Bearer " + token : undefined }
-            })
-        ]);
+  // Si non-admin => cacher la carte "Notif. non lues" (si elle existe)
+  const notifCard = document.querySelector(".dash-card-notif");
+  if (!isAdmin && notifCard) notifCard.style.display = "none";
 
-        const piecesData = await respPieces.json().catch(() => null);
-        const stockData  = await respStock.json().catch(() => null);
-        const notifData  = await respNotif.json().catch(() => null);
-        const movData    = await respMov.json().catch(() => null);
+  try {
+    // 1) Construire les requêtes sans notifications par défaut
+    const requests = [
+      fetch(API_PIECES, {
+        headers: { "Authorization": token ? "Bearer " + token : undefined }
+      }),
+      fetch(API_STOCK, {
+        headers: { "Authorization": token ? "Bearer " + token : undefined }
+      }),
+      fetch(API_STOCK_HISTORY, {
+        headers: { "Authorization": token ? "Bearer " + token : undefined }
+      })
+    ];
 
-        // ---- Comptes simples (avec ou sans pagination DRF) ----
-        const totalPieces = piecesData && typeof piecesData.count === "number"
-            ? piecesData.count
-            : (Array.isArray(piecesData) ? piecesData.length : 0);
-
-        const stockItems = stockData && typeof stockData.count === "number"
-            ? stockData.count
-            : (Array.isArray(stockData) ? stockData.length : 0);
-
-        let stockList = stockData;
-        if (stockData && Array.isArray(stockData.results)) {
-            stockList = stockData.results;
-        }
-        if (!Array.isArray(stockList)) stockList = [];
-
-        const lowCount = stockList.filter(s => s.is_below_minimum).length;
-        const zeroCount = stockList.filter(s => (s.quantity ?? 0) === 0).length;
-
-        const unreadNotif = notifData && typeof notifData.count === "number"
-            ? notifData.count
-            : (Array.isArray(notifData) ? notifData.length : 0);
-
-        // ---- Maj des cartes ----
-        document.getElementById("dash-total-pieces").textContent = totalPieces;
-        document.getElementById("dash-total-stock").textContent = stockItems;
-        document.getElementById("dash-low-stock").textContent = lowCount;
-        document.getElementById("dash-zero-stock").textContent = zeroCount;
-        document.getElementById("dash-unread-notif").textContent = unreadNotif;
-
-        // ---- Dictionnaire id -> "Ref — Nom" pour afficher les mouvements ----
-        let piecesList = piecesData;
-        if (piecesData && Array.isArray(piecesData.results)) {
-            piecesList = piecesData.results;
-        }
-        if (!Array.isArray(piecesList)) piecesList = [];
-
-        const labelById = {};
-        piecesList.forEach(p => {
-            labelById[p.id] = `${p.reference} — ${p.nom}`;
-        });
-
-        // ---- Derniers mouvements ----
-        let movements = movData;
-        if (movData && Array.isArray(movData.results)) {
-            movements = movData.results;
-        }
-        if (!Array.isArray(movements)) movements = [];
-
-        // On ne garde que les 5 plus récents (si l'API ne trie pas déjà)
-        movements = movements.slice(0, 5);
-
-        if (movements.length === 0) {
-            mvtTbody.innerHTML = `
-                <tr>
-                    <td colspan="5" style="text-align:center;">
-                        Aucun mouvement enregistré.
-                    </td>
-                </tr>
-            `;
-        } else {
-            mvtTbody.innerHTML = "";
-            movements.forEach(mvt => {
-                const pieceId = mvt.piece_id;
-                const pieceLabel = labelById[pieceId] || (pieceId ? `ID ${pieceId}` : "-");
-
-                const rawDate =
-                    mvt.timestamp ||
-                    mvt.created_at ||
-                    mvt.movement_date ||
-                    mvt.date ||
-                    null;
-
-                const dateStr = rawDate ? formatIsoDate(rawDate) : "";
-
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-                    <td>${dateStr}</td>
-                    <td>${(mvt.movement_type || "").toUpperCase()}</td>
-                    <td>${pieceLabel}</td>
-                    <td>${mvt.quantity ?? "-"}</td>
-                    <td>${mvt.location || "-"}</td>
-                `;
-                mvtTbody.appendChild(tr);
-            });
-        }
-
-    } catch (err) {
-        console.error(err);
-        errorBox.textContent =
-            "Erreur réseau : impossible de charger les données du tableau de bord.";
-        mvtTbody.innerHTML = `
-            <tr>
-                <td colspan="5" style="text-align:center;">Erreur de chargement.</td>
-            </tr>
-        `;
+    // 2) Ajouter notifications uniquement pour admin
+    if (isAdmin) {
+      requests.splice(2, 0,
+        fetch(`${API_NOTIFICATIONS}?status=UNREAD`, {
+          headers: { "Authorization": token ? "Bearer " + token : undefined }
+        })
+      );
     }
+
+    // 3) Exécuter les requêtes
+    const responses = await Promise.all(requests);
+
+    // 4) Remapper les réponses selon le rôle
+    let respPieces, respStock, respNotif, respMov;
+    if (isAdmin) {
+      [respPieces, respStock, respNotif, respMov] = responses;
+    } else {
+      [respPieces, respStock, respMov] = responses;
+    }
+
+    const piecesData = await respPieces.json().catch(() => null);
+    const stockData  = await respStock.json().catch(() => null);
+    const notifData  = isAdmin ? await respNotif.json().catch(() => null) : null;
+    const movData    = await respMov.json().catch(() => null);
+
+    // ---- Comptes simples (avec ou sans pagination DRF) ----
+    const totalPieces = piecesData && typeof piecesData.count === "number"
+      ? piecesData.count
+      : (Array.isArray(piecesData) ? piecesData.length : 0);
+
+    const stockItems = stockData && typeof stockData.count === "number"
+      ? stockData.count
+      : (Array.isArray(stockData) ? stockData.length : 0);
+
+    let stockList = stockData;
+    if (stockData && Array.isArray(stockData.results)) stockList = stockData.results;
+    if (!Array.isArray(stockList)) stockList = [];
+
+    const lowCount = stockList.filter(s => s.is_below_minimum).length;
+    const zeroCount = stockList.filter(s => (s.quantity ?? 0) === 0).length;
+
+    // Notifs uniquement si admin
+    const unreadNotif = isAdmin
+      ? (notifData && typeof notifData.count === "number"
+          ? notifData.count
+          : (Array.isArray(notifData) ? notifData.length : 0))
+      : 0;
+
+    // ---- Maj des cartes ----
+    document.getElementById("dash-total-pieces").textContent = totalPieces;
+    document.getElementById("dash-total-stock").textContent = stockItems;
+    document.getElementById("dash-low-stock").textContent = lowCount;
+    document.getElementById("dash-zero-stock").textContent = zeroCount;
+
+    // Mettre à jour la carte notif uniquement si admin ET si l’élément existe
+    const notifEl = document.getElementById("dash-unread-notif");
+    if (isAdmin && notifEl) {
+      notifEl.textContent = unreadNotif;
+    }
+
+    // ---- Dictionnaire id -> "Ref — Nom" pour afficher les mouvements ----
+    let piecesList = piecesData;
+    if (piecesData && Array.isArray(piecesData.results)) piecesList = piecesData.results;
+    if (!Array.isArray(piecesList)) piecesList = [];
+
+    const labelById = {};
+    piecesList.forEach(p => {
+      labelById[p.id] = `${p.reference} — ${p.nom}`;
+    });
+
+    // ---- Derniers mouvements ----
+    let movements = movData;
+    if (movData && Array.isArray(movData.results)) movements = movData.results;
+    if (!Array.isArray(movements)) movements = [];
+
+    movements = movements.slice(0, 5);
+
+    if (movements.length === 0) {
+      mvtTbody.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align:center;">Aucun mouvement enregistré.</td>
+        </tr>
+      `;
+    } else {
+      mvtTbody.innerHTML = "";
+      movements.forEach(mvt => {
+        const pieceId = mvt.piece_id;
+        const pieceLabel = labelById[pieceId] || (pieceId ? `ID ${pieceId}` : "-");
+
+        const rawDate =
+          mvt.timestamp ||
+          mvt.created_at ||
+          mvt.movement_date ||
+          mvt.date ||
+          null;
+
+        const dateStr = rawDate ? formatIsoDate(rawDate) : "";
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${dateStr}</td>
+          <td>${(mvt.movement_type || "").toUpperCase()}</td>
+          <td>${pieceLabel}</td>
+          <td>${mvt.quantity ?? "-"}</td>
+          <td>${mvt.location || "-"}</td>
+        `;
+        mvtTbody.appendChild(tr);
+      });
+    }
+
+  } catch (err) {
+    console.error(err);
+    errorBox.textContent =
+      "Erreur réseau : impossible de charger les données du tableau de bord.";
+    mvtTbody.innerHTML = `
+      <tr>
+        <td colspan="5" style="text-align:center;">Erreur de chargement.</td>
+      </tr>
+    `;
+  }
 }
 
 document.addEventListener('DOMContentLoaded', function () {
