@@ -8,11 +8,12 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from .models import Notification
 from .serializers import NotificationSerializer
+from .permissions import IsAdmin
 
 class NotificationListView(generics.ListAPIView):
 
     serializer_class = NotificationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdmin]
 
     def get_queryset(self):
         qs = Notification.objects.all()
@@ -30,7 +31,7 @@ class NotificationListView(generics.ListAPIView):
 
 class NotificationMarkReadView(APIView):
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdmin]
 
     def post(self, request):
         ids = request.data.get("ids", [])

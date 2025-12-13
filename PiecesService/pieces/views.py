@@ -7,6 +7,7 @@ from django.db.models import Q
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated, AllowAny 
 from django.db import connection
+from .permissions import IsAuthenticatedViaAuthService, IsAdmin, IsMagasinier
 
 
 # Custom pagination (Pour rendre l’UI plus fluide)
@@ -17,7 +18,11 @@ class PiecePagination(PageNumberPagination):
 
 
 class PieceListCreateView(APIView):
-    permission_classes = [IsAuthenticated] #obligation d'avoir un token JWT valide pour accéder à cette vue.
+    #obligation d'avoir un token JWT valide pour accéder à cette vue.
+    def get_permissions(self):
+        # GET + POST → Admin + Magasinier
+        return [IsAuthenticatedViaAuthService(), IsMagasinier()]
+    
     def get(self, request):
         search = request.GET.get("search", "")
         queryset = Piece.objects.all()
@@ -44,7 +49,13 @@ class PieceListCreateView(APIView):
 
 
 class PieceDetailView(APIView):
-    permission_classes = [IsAuthenticated] #obligation d'avoir un token JWT valide pour accéder à cette vue.
+    #obligation d'avoir un token JWT valide pour accéder à cette vue.
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticatedViaAuthService(), IsMagasinier()]
+        # PUT / DELETE → Admin seulement
+        return [IsAuthenticatedViaAuthService(), IsAdmin()] 
+
     def get(self, request, pk): #récupérer une pièce précise
         try:
             piece = Piece.objects.get(pk=pk)
