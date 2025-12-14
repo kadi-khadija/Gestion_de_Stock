@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate, get_user_model
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 
 User = get_user_model()
 
@@ -32,3 +32,19 @@ class LoginSerializer(serializers.Serializer):
                 "role": user.role,
             }
         }
+
+
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
+
+    def validate(self, attrs):
+        # just ensure the token parses
+        try:
+            self.token = RefreshToken(attrs["refresh"])
+        except TokenError:
+            raise serializers.ValidationError({"refresh": "Refresh token invalide."})
+        return attrs
+
+    def save(self, **kwargs):
+        # blacklist it (requires token_blacklist app + migrations)
+        self.token.blacklist()

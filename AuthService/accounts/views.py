@@ -5,7 +5,7 @@ from rest_framework import status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.authentication import BasicAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from .serializers import LoginSerializer
+from .serializers import LoginSerializer, LogoutSerializer
 from .permissions import IsAdmin, IsMagasinier
 
 # Pas d’authentification ni permissions, le middleware skip cette route (chemin public). 
@@ -26,6 +26,16 @@ class LoginView(APIView):
             {"error": serializer.errors},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+class LogoutView(APIView):
+    authentication_classes = []   # logout can be done with refresh only
+    permission_classes = []
+
+    def post(self, request):
+        serializer = LogoutSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"detail": "Déconnecté."}, status=status.HTTP_205_RESET_CONTENT)
 
 class AdminOnlyView(APIView):
      #que pour l'admin

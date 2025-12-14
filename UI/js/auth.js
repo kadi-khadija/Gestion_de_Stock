@@ -22,10 +22,25 @@ function tokenIsValid(token) {
 }
 
 /** Logout */
-function logoutAndRedirect() {
-    localStorage.removeItem("access");
-    localStorage.removeItem("refresh");
-    window.location.href = LOGIN_PAGE;
+async function logoutAndRedirect() {
+  const refresh = localStorage.getItem("refresh");
+
+  try {
+    if (refresh) {
+      await fetch("http://127.0.0.1:8090/api/auth/logout/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh })
+      });
+    }
+  } catch (e) {
+    // ignore network errors, still clear client tokens
+  }
+
+  localStorage.removeItem("access");
+  localStorage.removeItem("refresh");
+  localStorage.removeItem("role");
+  window.location.href = LOGIN_PAGE;
 }
 
 /* ROLE HANDLING*/
